@@ -61,7 +61,7 @@ user = None  # Once initialized by get_info() it contains a single users info
 # TODO: Maybe add r"$" to the end of each of these?
 # Gets badges, a number and space (unknown why it does that...),
 # extra information, COMMAND, channel, and message if available.
-tags_regex = re.compile(r"^@((\w|\W)+;user-type=(\s|\w)+):(\w+!\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+) :?([\S\s]+)?")
+tags_regex = re.compile(r"^@((\w|\W)+):(\w+!\w+@\w+\.)?tmi\.twitch\.tv ([A-Z]+) #(\w+)[ ]?:?([\S\s]+)?")
 # Gets username, extra information, channel, and user's message.
 irc_chat_regex = re.compile(r"^:(\w+)!(\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+) :?([\S\s]+)?")
 # Gets channel and string of all usernames.
@@ -341,7 +341,12 @@ def _manage_tags(twitch_tags=''):
     else:
 
         print("Tags: {}".format(twitch_tags))
-        print("Regex: {}".format(tag_regex.findall(twitch_tags)))  # DEBUG!!!
+        twitch_data = tags_regex.findall(twitch_tags)
+        print("Regex: {}".format(twitch_data))  # DEBUG!!!
+        extracted_tag_data = {}
+        for data in twitch_data[0][0].split(';'):
+            extracted_tag_data[data.split('=')[0]] = data.split('=')[1]
+            print("{}: {}".format(data.split('=')[0], data.split('=')[1]))
 
         # TODO: Consider whether I should do USERSTATE or GLOBALUSERSTATE since
         # PRIVMSG has the same tags.
@@ -949,12 +954,12 @@ def get_info(timeout_seconds=None):
         for info in information.split('\n'):
             try:
                 if info[0] == '@':
-                    if not _manage_tags(info):
+                    if not _manage_tags(info.strip()):
                         return False
                     else:
                         return True
                 else:
-                    if not _parse_irc(info):
+                    if not _parse_irc(info.strip()):
                         return False
                     else:
                         return True
