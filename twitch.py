@@ -17,6 +17,7 @@ Example program is located in the 'Examples' folder.
 # TODO: Make manage_irc capable of basic IRC if tags aren't ACK'd
 # TODO: Implement REGEX for both parsers.
 # TODO: Check if twitch has implemented sub badge years into tags.
+# TODO: Add local time to User class.
 
 # TODO: Rewrite returns of all functions to take advantage of raising exceptions
 # I want to make it so that I raise exceptions instead of just returning False.
@@ -30,6 +31,7 @@ Example program is located in the 'Examples' folder.
 # Imported Modules--------------------------------------------------------------
 import socket
 import time
+import re
 
 # Global Variables--------------------------------------------------------------
 _SOCK = None
@@ -53,6 +55,22 @@ _oauth = ''
 channels = {}
 notification = ''  # Holds a single notification from twitch
 user = None  # Once initialized by get_info() it contains a single users info
+
+# Regular expressions-----------------------------------------------------------
+# TODO: do a re.match for each of these to test which parser to send the information to?
+# TODO: Maybe add r"$" to the end of each of these?
+# Gets badges, a number and space (unknown why it does that...),
+# extra information, COMMAND, channel, and message if available.
+tags_regex = re.compile(r"^@((\w|\W)+;user-type=(\s|\w)+):(\w+!\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+) :?([\S\s]+)?")
+# Gets username, extra information, channel, and user's message.
+irc_chat_regex = re.compile(r"^:(\w+)!(\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+) :?([\S\s]+)?")
+# Gets channel and string of all usernames.
+names_start_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 353 \w+ = #(\w+) :([\S\s]+)?")
+# Gets channel
+names_end_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 356 \w+ #(\w+) :End of /NAMES list")
+# Gets channel and username
+join_part_regex = re.compile(r"^:(\w+)!(\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+)")
+#
 
 
 # Classes-----------------------------------------------------------------------
@@ -295,6 +313,8 @@ class _User(object):
 
 
 # Parsing-----------------------------------------------------------------------
+# TODO: Create functions for managing each command. Use _manage_tags to determine
+#       which function to use.
 def _manage_tags(twitch_tags=''):
     """
     Manages most tags given by Twitch. Specifically, it manages PRIVMSG, NOTICE,
@@ -315,9 +335,14 @@ def _manage_tags(twitch_tags=''):
         True: When it parses the tags
 
     """
+
     if not twitch_tags:
         return False
     else:
+
+        print("Tags: {}".format(twitch_tags))
+        print("Regex: {}".format(tag_regex.findall(twitch_tags)))  # DEBUG!!!
+
         # TODO: Consider whether I should do USERSTATE or GLOBALUSERSTATE since
         # PRIVMSG has the same tags.
         global user
