@@ -141,6 +141,6 @@ $RECYCLE.BIN/
 # Pycharm
 .idea/
 
-# Testing logs
+# Testing
 Logs/
-.idea/vcs.xml
+test.py
