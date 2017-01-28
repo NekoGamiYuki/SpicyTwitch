@@ -67,6 +67,8 @@ user = None  # Once initialized by get_info() it contains a single users info
 # Regular expressions-----------------------------------------------------------
 # TODO: do a re.match for each of these to test which parser to send the information to?
 # TODO: Maybe add r"$" to the end of each of these?
+# For capturing ACK/NAK from capability requests.
+cap_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv CAP \* ([A-Z]+) :twitch\.tv/(\w+)")
 # Gets badges, a number and space (unknown why it does that...),
 # extra information, COMMAND, channel, and message if available.
 tags_regex = re.compile(r"^@((\w|\W)+):(\w+!\w+@\w+\.)?tmi\.twitch\.tv ([A-Z]+) #(\w+)[ ]?:?([\S\s]+)?")
@@ -141,6 +143,7 @@ class _Emote(object):
         self.name = name
         self.id = id
         self.position = {"start": start, "end": end}
+
 
 # TODO: Add purge capability
 # TODO: Add unban and untimeout capabilities.
