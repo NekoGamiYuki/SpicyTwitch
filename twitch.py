@@ -64,7 +64,7 @@ channels = {}
 notification = ''  # Holds a single notification from twitch
 user = None  # Once initialized by get_info() it contains a single users info
 
-# Regular expressions-----------------------------------------------------------
+# Regular Expressions-----------------------------------------------------------
 # TODO: do a re.match for each of these to test which parser to send the information to?
 # TODO: Maybe add r"$" to the end of each of these?
 # For capturing ACK/NAK from capability requests.
@@ -109,7 +109,7 @@ class _Channel(object):
         if name:
             self.name = name
         else:
-            self.name = "UNASSIGNED"
+            raise ValueError("Channel objects must have a non-empty name.")
 
         # How many messages were chatted since you joined
         self.message_count = 0
