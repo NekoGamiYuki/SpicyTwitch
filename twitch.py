@@ -15,8 +15,7 @@ Example program is located in the 'Examples' folder.
 # TODO: Finish adding docstrings and commenting out code
 # TODO: Make get_info check for CAP NACK.
 # TODO: Make manage_irc capable of basic IRC if tags aren't ACK'd
-# TODO: Implement REGEX for both parsers.
-#       With new regex I can check if the bot is a mod! I could create a 'me'
+# TODO: With new regex I can check if the bot is a mod! I could create a 'me'
 #       class and check channels I have joined for my status within them.
 # TODO: If desired, I could put all of this into a class. That would make this
 #       module capable of managing multiple bots. Though I find that unnecessary,
@@ -26,6 +25,7 @@ Example program is located in the 'Examples' folder.
 # TODO: Add reaction for 'REJOIN' command. It closes our connection after some
 #       time. So I think what I'll do is set a variable to true, then if our
 #       connection is closed and that variable is true, we will rejoin.
+# TODO: Update all functions to use python3 type hinting
 
 # TODO: Rewrite returns of all functions to take advantage of raising exceptions
 # I want to make it so that I raise exceptions instead of just returning False.
@@ -182,7 +182,9 @@ class User(object):
     send_message(): Sends/Directs a message to a user in chat
     """
 
-    def __init__(self, extracted_tag_data: dict, channel_chatted_from: str, chat_message: str, filler_message="UNASSIGNED"):
+    # TODO: Consider renaming "extra" to something more specific.
+    def __init__(self, extracted_tag_data: dict, channel_chatted_from: str,
+                 chat_message: str, extra: str, filler_message="UNASSIGNED"):
         filler = filler_message  # For when we can't assign a value
         if not extracted_tag_data:
             self.name = filler
@@ -200,6 +202,9 @@ class User(object):
             try:
                 # Basic user information
                 self.name = extracted_tag_data["display-name"]
+                if not self.name:
+                    self.name = extra.split('!')[0]
+
                 self.message = chat_message
                 # Where the user last chatted from
                 self.chatted_from = channel_chatted_from
@@ -315,6 +320,7 @@ class User(object):
 
         Args:
             seconds: The duration of the timeout in seconds. Default 600.
+            reason: The reason for timing out this user.
 
         Returns:
             True: When it succeeds in sending the timeout command to twitch
@@ -392,7 +398,7 @@ def _manage_tags(input_data=''):
                 channels[twitch_data[-2]].message_count += 1
 
             # Update user variable
-            user = User(extracted_tag_data, twitch_data[-2], twitch_data[-1])
+            user = User(extracted_tag_data, twitch_data[-2], twitch_data[-1], twitch_data[-4])
 
             # Sometimes this breaks, specifically when a user calls leave_channel()
             # as that deletes the channel from the channels dictionary.
@@ -537,6 +543,15 @@ def _parse_irc(irc_info=''):
     elif join_part:
         username = join_part[0][0]
         affected_channel = join_part[0][-1]
+
+        # Temp fix for incomplete channel names being given.
+        # TODO: use SequenceMatcher from difflib module to get similarity of
+        #       given channel name to names in channels dictionary. If more
+        #       than, say, 75% similarity we'll use the channel.name.
+        for channel in channels.keys():
+            if join_part[0][-1] in channel:
+                affected_channel = channel
+
         if join_part[0][-2] == "JOIN":
             if username not in channels[affected_channel].viewers:
                 channels[affected_channel].viewers.append(username)
