@@ -1,6 +1,6 @@
 """
 Author: NekoGamiYuki
-Version: 0.0.2
+Version: 0.0.3
 
 Description:
 A simple twitch API. Current version will be rather basic, with the main ability
@@ -344,6 +344,7 @@ class _User(object):
         else:
             return False
 
+
 # Parsing-----------------------------------------------------------------------
 # TODO: Create functions for managing each command. Use _manage_tags to determine
 #       which function to use.
@@ -391,18 +392,24 @@ def _manage_tags(twitch_tags=''):
             # Update user variable
             user = _User(extracted_tag_data, twitch_data[-2], twitch_data[-1])
 
-            # Since we get to see if a user is a mod now, we add them to their
-            # respective channel's moderator list
-            # TODO: This breaks whenever I leave a channel. As the channel is deleted from the channels list.
-            moderator_list = channels[user.chatted_from].moderators
-            if user.is_mod and user.name not in moderator_list:
-                channels[user.chatted_from].moderators.append(user.name)
-            elif not user.is_mod and user.name in moderator_list:
-                channels[user.chatted_from].moderators.remove(user.name)
+            # Sometimes this breaks, specifically when a user calls leave_channel()
+            # as that deletes the channel from the channels dictionary.
+            try:
+                # Since we get to see if a user is a mod now, we add them to their
+                # respective channel's moderator list if they're not already there.
+                moderator_list = channels[user.chatted_from].moderators
+                if user.is_mod and user.name not in moderator_list:
+                    channels[user.chatted_from].moderators.append(user.name)
+                elif not user.is_mod and user.name in moderator_list:
+                    channels[user.chatted_from].moderators.remove(user.name)
 
-            viewers = channels[user.chatted_from].viewers
-            if user.name and user.name not in viewers:
-                channels[user.chatted_from].viewers.append(user.name)
+                # We can also add them to the list of viewers if they weren't
+                # already there.
+                viewers = channels[user.chatted_from].viewers
+                if user.name and user.name not in viewers:
+                    channels[user.chatted_from].viewers.append(user.name)
+            except KeyError:
+                pass
 
         elif twitch_data[-3] == "NOTICE":  # Twitch NOTICE tag management
             main_info = twitch_tags.split(':')
