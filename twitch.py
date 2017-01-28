@@ -1,6 +1,6 @@
 """
 Author: NekoGamiYuki
-Version: 0.0.0
+Version: 0.0.1
 
 Description:
 A simple twitch API. Current version will be rather basic, with the main ability
@@ -16,8 +16,16 @@ Example program is located in the 'Examples' folder.
 # TODO: Make get_info check for CAP NACK.
 # TODO: Make manage_irc capable of basic IRC if tags aren't ACK'd
 # TODO: Implement REGEX for both parsers.
+#       With new regex I can check if the bot is a mod! I could create a 'me'
+#       class and check channels I have joined for my status within them.
+# TODO: If desired, I could put all of this into a class. That would make this
+#       module capable of managing multiple bots. Though I find that unnecessary,
+#       but cool.
 # TODO: Check if twitch has implemented sub badge years into tags.
 # TODO: Add local time to User class.
+# TODO: Add reaction for 'REJOIN' command. It closes our connection after some
+#       time. So I think what I'll do is set a variable to true, then if our
+#       connection is closed and that variable is true, we will rejoin.
 
 # TODO: Rewrite returns of all functions to take advantage of raising exceptions
 # I want to make it so that I raise exceptions instead of just returning False.
@@ -65,12 +73,11 @@ tags_regex = re.compile(r"^@((\w|\W)+):(\w+!\w+@\w+\.)?tmi\.twitch\.tv ([A-Z]+) 
 # Gets username, extra information, channel, and user's message.
 irc_chat_regex = re.compile(r"^:(\w+)!(\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+) :?([\S\s]+)?")
 # Gets channel and string of all usernames.
-names_start_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 353 \w+ = #(\w+) :([\S\s]+)?")
+names_start_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 353 \w+ = #(\w+) :([\S\s]+)")
 # Gets channel
-names_end_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 356 \w+ #(\w+) :End of /NAMES list")
+names_end_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 366 \w+ #(\w+) :END of /NAMES list")
 # Gets channel and username
 join_part_regex = re.compile(r"^:(\w+)!(\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+)")
-#
 
 
 # Classes-----------------------------------------------------------------------
@@ -135,7 +142,9 @@ class _Emote(object):
         self.id = id
         self.position = {"start": start, "end": end}
 
-
+# TODO: Add purge capability
+# TODO: Add unban and untimeout capabilities.
+# TODO: Add reason to timeout()
 class _User(object):
     """
     Largest class in the API. Contains as much information about a user as given
@@ -246,6 +255,7 @@ class _User(object):
                 self.command = error_filler
                 self._error = error_information
 
+    # Would "reply" be a better name?
     def send_message(self, message, append_symbol=True):
         """
         Send a message to this user. This is for chatting, not twitch messaging
@@ -313,6 +323,8 @@ class _User(object):
 
 
 # Parsing-----------------------------------------------------------------------
+# TODO: Consider removing returns from function. Maybe unnecessary, if get_info()
+#       were to return false from a parse failure a lot of data would be lost.
 # TODO: Create functions for managing each command. Use _manage_tags to determine
 #       which function to use.
 def _manage_tags(twitch_tags=''):
@@ -340,6 +352,7 @@ def _manage_tags(twitch_tags=''):
         return False
     else:
 
+        print('-'*80)
         print("Tags: {}".format(twitch_tags))
         twitch_data = tags_regex.findall(twitch_tags)
         print("Regex: {}".format(twitch_data))  # DEBUG!!!
@@ -477,6 +490,8 @@ def _manage_tags(twitch_tags=''):
             affected_channel = main_info[1].split('#')[1].strip()
             affected_user = main_info[2].strip()
 
+            # TODO: Check if ban duration exists. Else this crashes the module when
+            #       someone is perma banned.
             if len(ban_info) > 1:
                 channels[affected_channel].timed_out_users[affected_user] = (
                     ban_info["@ban-duration"]
@@ -506,6 +521,15 @@ def _parse_irc(irc_info):
         False: If it doesn't get information or Fails to parse.
         True: When it parses the information
     """
+
+    # DEBUG !!!
+    print('-' * 80)
+    print("RAW: {}".format(irc_info))
+    print("irc_chat: {}".format(irc_chat_regex.findall(irc_info)))
+    print("join_part: {}".format(join_part_regex.findall(irc_info)))
+    print("name_start: {}".format(names_start_regex.findall(irc_info)))
+    print("name_end: {}".format(names_end_regex.findall(irc_info)))
+
     if not irc_info:
         return False
     else:
@@ -938,6 +962,7 @@ def get_info(timeout_seconds=None):
         # that is not in the ASCII range, since users might choose to use
         # some rather strange characters.
         return False
+    print(">>>GET_INFO_FULL: {}".format(information))
 
     if not information:
         return False
@@ -952,16 +977,12 @@ def get_info(timeout_seconds=None):
     else:
         # Time to parse the information we received!
         for info in information.split('\n'):
+            print(">>>GET_INFO: {}".format(info.strip()))
             try:
                 if info[0] == '@':
-                    if not _manage_tags(info.strip()):
-                        return False
-                    else:
-                        return True
+                   _manage_tags(info.strip())
                 else:
-                    if not _parse_irc(info.strip()):
-                        return False
-                    else:
-                        return True
+                    _parse_irc(info.strip())
             except IndexError:
                 pass
+        return True
