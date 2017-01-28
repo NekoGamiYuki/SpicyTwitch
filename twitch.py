@@ -75,14 +75,22 @@ tags_regex = re.compile(r"^@((\w|\W)+):(\w+!\w+@\w+\.)?tmi\.twitch\.tv ([A-Z]+) 
 # Gets username, extra information, channel, and user's message.
 irc_chat_regex = re.compile(r"^:(\w+)!(\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+) :?([\S\s]+)?")
 # Gets channel and string of all usernames.
+# Although this says "start", I think twitch sends this for each list of users. So it can
+# send multiple of these for the same channel until the list is done. I can use name_end for
+# logging purposes as it really won't be useful for anything else.
 names_start_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 353 \w+ = #(\w+) :([\S\s]+)")
 # Gets channel
 names_end_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 366 \w+ #(\w+) :([\S\s]+)")
 # Gets channel and username
+# NOTE: Sometimes is incomplete on channel name! Maybe do a check to see if the
+#       partial channel name fits inside only ONE of the current channels? If more than
+#       than one match, maybe discard? Or throw into an "unknown" bin.
 join_part_regex = re.compile(r"^:(\w+)!(\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+)")
+mod_regex = re.compile(r"^:jtv ([A-Z]+) #(\w+) ([-+])o (\w+)")
 
 
 # Classes-----------------------------------------------------------------------
+# TODO: Add followers_only check.
 class _Channel(object):
     """
     Contains information about a single channel. Such as their viewers, the
@@ -533,6 +541,7 @@ def _parse_irc(irc_info):
     print("join_part: {}".format(join_part_regex.findall(irc_info)))
     print("name_start: {}".format(names_start_regex.findall(irc_info)))
     print("name_end: {}".format(names_end_regex.findall(irc_info)))
+    print("mod: {}".format(mod_regex.findall(irc_info)))
 
     if not irc_info:
         return False
