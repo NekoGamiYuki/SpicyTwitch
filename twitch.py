@@ -290,6 +290,23 @@ class _User(object):
         else:
             return True
 
+    def purge(self, reason=''):
+        """
+        Purges (times out for 1 second) this user.
+
+        Args:
+            reason: The reason for the purging of this user
+
+        Returns:
+            True: When it succeeds to send the purge command
+            False: When it fails to send the purge command
+
+        """
+        if self.timeout(1, reason):
+            return True
+        else:
+            return False
+
     def timeout(self, seconds=600, reason=''):
         """
         Times out this user.
