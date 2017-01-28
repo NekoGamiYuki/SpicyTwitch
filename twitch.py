@@ -57,11 +57,11 @@ _RATE = 100  # No more than 100 commands sent every 30 seconds
 
 # User information (for reconnecting)
 _username = ''
-_oauth = ''
+_oauth = ''  # Good idea? It's the only way I know of keeping it around...
 
 # Twitch chat information
 channels = {}
-notification = ''  # Holds a single notification from twitch
+notification = {}  # Holds a single notification from twitch (channel_name, message)
 user = None  # Once initialized by get_info() it contains a single users info
 
 # Regular Expressions-----------------------------------------------------------
@@ -91,7 +91,7 @@ mod_regex = re.compile(r"^:jtv ([A-Z]+) #(\w+) ([-+])o (\w+)")
 
 # Classes-----------------------------------------------------------------------
 # TODO: Add followers_only check.
-class _Channel(object):
+class Channel(object):
     """
     Contains information about a single channel. Such as their viewers, the
     message count (since you joined), whether they're in slow mode, etc...
@@ -135,12 +135,12 @@ class _Channel(object):
         self.hosted_channel = ''
 
 
-class _Emote(object):
+class Emote(object):
     """
     Contains information relating to an emote. The Name, ID, and position in
     a string are provided.
 
-    Inforamtion you can get from this class:
+    Information you can get from this class:
     name: Name of the emote
     id: Id of the emote, for use in other parts of the twitch API (not this one)
     position: Start and End position of the emote in the user's message
@@ -156,7 +156,7 @@ class _Emote(object):
 # TODO: Add purge capability
 # TODO: Add unban and untimeout capabilities.
 # TODO: Add reason to timeout()
-class _User(object):
+class User(object):
     """
     Largest class in the API. Contains as much information about a user as given
     by Twitch.
@@ -171,14 +171,15 @@ class _User(object):
     is_turbo: Whether they're a turbo subscriber
     user_type: This can be Admin, Staff, Mod, and anything else twitch adds
     color: The color of the user
-    emotes: A collection of _Emote objects, each relating to an emote the user
+    emotes: A collection of Emote objects, each relating to an emote the user
             used in chat.
     command: For bots, it's the first word in their message.
 
     Functions:
     ban(): Ban a user
     timeout(): Timeout a user
-    send_message(): Sends a message to a user in chat
+    purge(): Purge a user
+    send_message(): Sends/Directs a message to a user in chat
     """
 
     def __init__(self, extracted_tag_data: dict, channel_chatted_from: str, chat_message: str, filler_message="UNASSIGNED"):
@@ -240,7 +241,7 @@ class _User(object):
                             start = int(position.split('-')[0])
                             end = int(position.split('-')[1]) + 1
                             name = self.message[start:end]
-                            self.emotes.append(_Emote(name,  # Name
+                            self.emotes.append(Emote(name,  # Name
                                                       info.split(":")[0],  # ID
                                                       start,  # Start position
                                                       end))  # end position
@@ -248,8 +249,9 @@ class _User(object):
                 # Bot information (Useful for bots) It's the first word of their
                 # chat message.
                 self.command = self.message.split()[0]
+            # TODO: Maybe change this?
             except (KeyError, TypeError) as error_information:
-                error_filler = ("ERROR: Please check  user._error if this "
+                error_filler = ("ERROR: Please check  user.error if this "
                                 "issue persists.")
                 self.name = error_filler
                 self.message = error_filler
@@ -263,7 +265,7 @@ class _User(object):
                 self.color = error_filler
                 self.emotes = []
                 self.command = error_filler
-                self._error = error_information
+                self.error = error_information
 
     # Would "reply" be a better name?
     def send_message(self, message, append_symbol=True):
@@ -350,7 +352,7 @@ class _User(object):
 #       which function to use.
 # TODO: Manage GLOBALUSERSTATE, use to create a "me" variable that contains our
 #       user's information.
-def _manage_tags(twitch_tags=''):
+def _manage_tags(input_data=''):
     """
     Manages most tags given by Twitch. Specifically, it manages PRIVMSG, NOTICE,
     ROOMSTATE, and CLEARCHAT tags. Updates the corresponding variables, such as
@@ -363,14 +365,14 @@ def _manage_tags(twitch_tags=''):
     notification: Places the latest notification from chat, along with the
                   channel it came from
     Args:
-        twitch_tags: Tags are denoted by the '@' at the start of their line
+        input_data: The data, from Twitch, that will be parsed.
 
     """
 
-    if twitch_tags:
+    if input_data:
         print('-'*80)
-        print("Tags: {}".format(twitch_tags))
-        twitch_data = tags_regex.findall(twitch_tags)[0]
+        print("Tags: {}".format(input_data))
+        twitch_data = tags_regex.findall(input_data)[0]
         print("Regex: {}".format(twitch_data))  # DEBUG!!!
         extracted_tag_data = {}
         for data in twitch_data[0].split(';'):
@@ -390,7 +392,7 @@ def _manage_tags(twitch_tags=''):
                 channels[twitch_data[-2]].message_count += 1
 
             # Update user variable
-            user = _User(extracted_tag_data, twitch_data[-2], twitch_data[-1])
+            user = User(extracted_tag_data, twitch_data[-2], twitch_data[-1])
 
             # Sometimes this breaks, specifically when a user calls leave_channel()
             # as that deletes the channel from the channels dictionary.
@@ -412,13 +414,11 @@ def _manage_tags(twitch_tags=''):
                 pass
 
         elif twitch_data[-3] == "NOTICE":  # Twitch NOTICE tag management
-            main_info = twitch_tags.split(':')
-            affected_channel = main_info[1].split('#')[1].strip()
-            message_id = main_info[0].split('=')[1].strip()
+            affected_channel = twitch_data[-2]
+            message_id = twitch_data[0].split('=')[1].strip()
 
-            notification = "{} | {}".format(
-                affected_channel, main_info[2].strip()
-            )
+            notification["channel_name"] = affected_channel
+            notification["message"] = twitch_data[-1]
 
             if "slow" in message_id:
                 if "on" in message_id:
@@ -435,6 +435,8 @@ def _manage_tags(twitch_tags=''):
                     channels[affected_channel].r9k = True
                 else:
                     channels[affected_channel].r9k = False
+
+            # TODO: NEED TO CHECK IF THIS STILL WORKS!
             elif "host" in message_id:
                 if "on" in message_id:
                     channels[affected_channel].hosting = True
@@ -446,61 +448,51 @@ def _manage_tags(twitch_tags=''):
                     channels[affected_channel].hosted_channel = ''
 
         elif twitch_data[-3] == "ROOMSTATE":
-            main_info = twitch_tags.split(":")
-            channel_info = main_info[0].split('@')[1].split(';')
-            affected_channel = main_info[1].split('#')[1].strip()
+            affected_channel = twitch_data[-2]
 
-            for info in channel_info:
-                tag_info = info.split('=')
-                if "broadcaster-lang" in tag_info[0]:
-                    channels[affected_channel].language = tag_info[1]
-                elif "slow" in tag_info[0]:
-                    if tag_info[1] == '0':
-                        channels[affected_channel].slow = False
-                        channels[affected_channel].slow_time = 0
-                    else:
-                        channels[affected_channel].slow = True
-                        channels[affected_channel].slow_time = int(tag_info[1])
-                elif "subs-only" in tag_info[0]:
-                    if '0' in tag_info[1]:
-                        channels[affected_channel].subscriber = False
-                    else:
-                        channels[affected_channel].subscriber = True
-                elif "r9k" in tag_info[0]:
-                    if '0' in tag_info[1]:
-                        channels[affected_channel].r9k = False
-                    else:
-                        channels[affected_channel].r9k = True
+            # TODO: Check for "followers-only"
+            if "broadcaster-lang" in extracted_tag_data.keys():
+                channels[affected_channel].language = extracted_tag_data["broadcaster-lang"]
+            elif "slow" in extracted_tag_data.keys():
+                if extracted_tag_data["slow"] == '0':
+                    channels[affected_channel].slow = False
+                    channels[affected_channel].slow_time = 0
+                else:
+                    channels[affected_channel].slow = True
+                    channels[affected_channel].slow_time = int(extracted_tag_data["slow"])
+            elif "subs-only" in extracted_tag_data.keys():
+                if '0' in extracted_tag_data["subs-only"]:
+                    channels[affected_channel].subscriber = False
+                else:
+                    channels[affected_channel].subscriber = True
+            elif "r9k" in extracted_tag_data.keys():
+                if '0' in extracted_tag_data["r9k"]:
+                    channels[affected_channel].r9k = False
+                else:
+                    channels[affected_channel].r9k = True
 
         elif twitch_data[-3] == "CLEARCHAT":
-            main_info = twitch_tags.split(":")
-            ban_info = {}
-            if "reason" in main_info[0]:
-                for info in main_info[0].split(';'):
-                    ban_info[info.split('=')[0]] = info.split('=')[1]
-            else:
-                ban_info[main_info[0].split('=')[0]] = (
-                    main_info[0].split('=')[1]
-                )
-            affected_channel = main_info[1].split('#')[1].strip()
-            affected_user = main_info[2].strip()
+            affected_channel = twitch_data[-2]
+            affected_user = twitch_data[-1]
 
             # TODO: Check if ban duration exists. Else this crashes the module when
             #       someone is perma banned.
-            if len(ban_info) > 1:
+
+            if "ban-duration" in extracted_tag_data.keys():
                 channels[affected_channel].timed_out_users[affected_user] = (
-                    ban_info["@ban-duration"]
+                    extracted_tag_data["ban-duration"]
                 )
-            else:
+            elif "ban-reason" in extracted_tag_data.keys():
                 channels[affected_channel].banned_users[affected_user] = (
-                    ban_info["@ban-reason"]
+                    extracted_tag_data["ban-reason"]
                 )
 
             # TODO: Consider updating the notification var with timeout/ban info
 
-# TODO: Manage names when joining a channel.
-# TODO: Completely rewrite, use regex instead.
-def _parse_irc(irc_info):
+
+# TODO: Implement regex for HOSTTARGET and manage RECONNECT calls.
+# TODO: Manage CAP NAK
+def _parse_irc(irc_info=''):
     """
     Parses any information that _manage_tags does not. This, for now, is just
     any JOINS and PARTS, as well as whenever hosting is started (however,
@@ -516,7 +508,6 @@ def _parse_irc(irc_info):
 
     # DEBUG !!!
     print('-' * 80)
-    print("RAW: {}".format(irc_info))
     print("cap: {}".format(cap_regex.findall(irc_info)))
     print("irc_chat: {}".format(irc_chat_regex.findall(irc_info)))
     print("join_part: {}".format(join_part_regex.findall(irc_info)))
@@ -524,95 +515,55 @@ def _parse_irc(irc_info):
     print("name_end: {}".format(names_end_regex.findall(irc_info)))
     print("mod: {}".format(mod_regex.findall(irc_info)))
 
-    if not irc_info:
-        return False
-    else:
-        try:  # This try block is my cheap as hell way to save myself some work
-            global channels
-            global notification
+    # This feels incredibly inefficient but it works...
+    cap = cap_regex.findall(irc_info)
+    irc_chat = irc_chat_regex.findall(irc_info)
+    join_part = join_part_regex.findall(irc_info)
+    mod_unmod = mod_regex.findall(irc_info)
+    names_start = names_start_regex.findall(irc_info)
 
-            irc_command = irc_info.split('#', 1)[0].split()[-1].strip()
-            affected_channel = irc_info.split('#', 1)[1].strip()
+    global channels
+    global notification
 
-            # TODO: This seems to be bugged, so It doesn't always work
-            # Managing NAMES given by twitch when you first join a channel
-            if "353" in irc_info and '#' in irc_info:
-                names = irc_info.split(':', 2)[2]
-                names_affected_channel = (
-                    irc_info.split(':', 2)[1].split('#')[1].strip()
-                )
-                name_list = []
-                for name in names.split():
-                    if name not in name_list:
-                        name_list.append(name)
-                for name in name_list:
-                    if name not in channels[names_affected_channel].viewers:
-                        channels[names_affected_channel].viewers.append(name)
+    # Managing commands
+    if names_start:
+        # Manage list of usernames/viewers given by twitch when you first
+        # join a channel.
+        names_affected_channel = names_start[0][0]
+        name_list = names_start[0][1].split()
+        for name in name_list:
+            if name not in channels[names_affected_channel].viewers:
+                channels[names_affected_channel].viewers.append(name)
+    elif join_part:
+        username = join_part[0][0]
+        affected_channel = join_part[0][-1]
+        if join_part[0][-2] == "JOIN":
+            if username not in channels[affected_channel].viewers:
+                channels[affected_channel].viewers.append(username)
+        elif join_part[0][-2] == "PART":
+            if username in channels[affected_channel].viewers:
+                channels[affected_channel].viewers.remove(username)
 
-            # Managing commands
-            if irc_command == "JOIN":
-                join_user = irc_info.split('!', 1)[0].split(':')[1].strip()
-                if join_user not in channels[affected_channel].viewers:
-                    channels[affected_channel].viewers.append(join_user)
-                return True
-            elif irc_command == "PART":
-                join_user = irc_info.split('!', 1)[0].split(':')[1].strip()
-                if join_user in channels[affected_channel].viewers:
-                    channels[affected_channel].viewers.remove(join_user)
-                return True
-            elif irc_command == "MODE":
-                mode = irc_info.split('#')[1].split()[1]
-                affected_user = irc_info.split('#')[1].split()[-1]
-                affected_channel = irc_info.split('#')[1].split()[0].strip()
+    elif mod_unmod:
+        affected_user = mod_unmod[0][-1]
+        affected_channel = mod_unmod[0][1]
 
-                if mode == '+o':
-                    if affected_user not in \
-                            channels[affected_channel].operators:
-                            channels[affected_channel].operators.append(
-                            affected_user
-                        )
-                elif mode == '-o':
-                    if affected_user in channels[affected_channel].moderators:
-                        channels[affected_channel].operators.append(
-                            affected_user
-                        )
-                return True
-            elif irc_command == "HOSTTARGET":
-                main_info = irc_info.split(':')
-                affected_channel = main_info[0].split('#')[1].strip()
-                target_channel = main_info[1].split()[0].strip()
-
-                if (
-                            not channels[affected_channel].hosting and
-                            not channels[affected_channel].hosted_channel
-                ):
-                    channels[affected_channel].hosting = True
-                    channels[affected_channel].hosted_channel = target_channel
-                elif (
-                                channels[affected_channel].hosting and
-                                channels[affected_channel].hosted_channel and
-                                target_channel == '-'
-                ):
-                    channels[affected_channel].hosting = False
-                    channels[affected_channel].hosted_channel = ''
-                return True
-            elif irc_command == "PRIVMSG":
-                # TODO: Debug notifications
-                main_info = irc_info.split(':', 2)
-                sender = main_info[1].split('!')[0].strip()
-                affected_channel = main_info[1].split("#", 1)[1].strip()
-                sub_resub_notification = main_info[2].strip()
-                if sender == "twitchnotify":
-                    notification = "{} | {}".format(
-                        affected_channel, sub_resub_notification
-                    )
-            elif irc_command == "RECONNECT":
-                if not reconnect():
-                    return False
-                else:
-                    return True
-        except IndexError:
-            return False
+        if mod_unmod[0][2] == '-':
+            if affected_user.lower() in channels[affected_channel].moderators:
+                for i, user in channels[affected_channel].moderators:
+                    if user == affected_user:
+                        del channels[affected_channel].moderators[i]
+        elif mod_unmod[0][2] == '+':
+            if affected_user.lower() not in channels[affected_channel].moderators:
+                channels[affected_channel].moderators.append(affected_user.lower())
+    elif irc_chat:
+        # TODO: Edit user variable!
+        sender = irc_chat[0][0]
+        affected_channel = irc_chat[0][-2]
+        sub_resub_notification = irc_chat[0][-1]
+        if sender == "twitchnotify":
+            notification["channel_name"] = affected_channel
+            notification["message"] = sub_resub_notification
 
 
 # Twitch Communication----------------------------------------------------------
@@ -700,16 +651,16 @@ def chat(message='', channel=''):
 
 def join_channel(channel='', rejoin=False):
     """
-    Joins a channel's chat, allowing the API to recieve information from that
+    Joins a channel's chat, allowing the API to receive information from that
     channel. Updates the channels variable with a new channel object, named
     after the channel you've joined.
 
     Args:
         channel: What channel you would like to join
         rejoin: Used by reconnect() to force rejoining of channels that
-                are already in the channels list.
+                are already in the channels dictionary.
     Returns:
-        False: If given no channel or if it fails to send the join request, or
+        False: If given no channel, if it fails to send the join request, or
                if we have already joined the channel.
         True: When it succeeds at sending the join request
 
@@ -724,7 +675,7 @@ def join_channel(channel='', rejoin=False):
             return False
         else:
             if channel not in channels.keys():
-                channels[channel] = _Channel(channel)
+                channels[channel] = Channel(channel)
             return True
 
 
@@ -846,7 +797,7 @@ def connect(username='', oauth='', protocol="tcp", timeout_seconds=60):
     _send_info("NICK %s\r\n" % username)
 
     # Check if the login details were correct
-    # TODO: Move this over to get_info()?
+    # TODO: Move this over to get_info()? or a "check_login" function?
     response = _SOCK.recv(512).decode()
     if not response or "Error logging in" in response:
         _SOCK.close()
@@ -939,7 +890,7 @@ def get_info(timeout_seconds=None):
     global user
     global notification
     user = None
-    notification = ''
+    notification = {}
 
     #TODO: Consider throwing an error instead of ignoring the chat message.
     try:
@@ -973,11 +924,9 @@ def get_info(timeout_seconds=None):
         # Time to parse the information we received!
         for info in information.split('\n'):
             print(">>>GET_INFO: {}".format(info.strip()))
-            try:
+            if info:
                 if info[0] == '@':
                    _manage_tags(info.strip())
                 else:
                     _parse_irc(info.strip())
-            except IndexError:
-                pass
         return True
