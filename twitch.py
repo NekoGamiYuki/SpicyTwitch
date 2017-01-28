@@ -68,7 +68,7 @@ user = None  # Once initialized by get_info() it contains a single users info
 # TODO: do a re.match for each of these to test which parser to send the information to?
 # TODO: Maybe add r"$" to the end of each of these?
 # For capturing ACK/NAK from capability requests.
-cap_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv CAP \* ([A-Z]+) :twitch\.tv/(\w+)")
+cap_regex = re.compile(r"^:tmi\.twitch\.tv CAP \* ([A-Z]+) :twitch\.tv/(\w+)")
 # Gets badges, a number and space (unknown why it does that...),
 # extra information, COMMAND, channel, and message if available.
 tags_regex = re.compile(r"^@((\w|\W)+):(\w+!\w+@\w+\.)?tmi\.twitch\.tv ([A-Z]+) #(\w+)[ ]?:?([\S\s]+)?")
@@ -77,7 +77,7 @@ irc_chat_regex = re.compile(r"^:(\w+)!(\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+)
 # Gets channel and string of all usernames.
 names_start_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 353 \w+ = #(\w+) :([\S\s]+)")
 # Gets channel
-names_end_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 366 \w+ #(\w+) :END of /NAMES list")
+names_end_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 366 \w+ #(\w+) :([\S\s]+)")
 # Gets channel and username
 join_part_regex = re.compile(r"^:(\w+)!(\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+)")
 
@@ -528,6 +528,7 @@ def _parse_irc(irc_info):
     # DEBUG !!!
     print('-' * 80)
     print("RAW: {}".format(irc_info))
+    print("cap: {}".format(cap_regex.findall(irc_info)))
     print("irc_chat: {}".format(irc_chat_regex.findall(irc_info)))
     print("join_part: {}".format(join_part_regex.findall(irc_info)))
     print("name_start: {}".format(names_start_regex.findall(irc_info)))
@@ -855,6 +856,7 @@ def connect(username='', oauth='', protocol="tcp", timeout_seconds=60):
     _send_info("NICK %s\r\n" % username)
 
     # Check if the login details were correct
+    # TODO: Move this over to get_info()?
     response = _SOCK.recv(512).decode()
     if not response or "Error logging in" in response:
         _SOCK.close()
