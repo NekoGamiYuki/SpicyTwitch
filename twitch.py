@@ -359,10 +359,7 @@ def _manage_tags(twitch_tags=''):
 
     """
 
-    if not twitch_tags:
-        return False
-    else:
-
+    if twitch_tags:
         print('-'*80)
         print("Tags: {}".format(twitch_tags))
         twitch_data = tags_regex.findall(twitch_tags)
@@ -426,7 +423,6 @@ def _manage_tags(twitch_tags=''):
             if user.name and user.name not in viewers:
                 channels[user.chatted_from].viewers.append(user.name)
 
-            return True
         elif irc_command == "NOTICE":  # Twitch NOTICE tag management
             main_info = twitch_tags.split(':')
             affected_channel = main_info[1].split('#')[1].strip()
@@ -460,7 +456,7 @@ def _manage_tags(twitch_tags=''):
                 else:
                     channels[affected_channel].hosting = False
                     channels[affected_channel].hosted_channel = ''
-            return True
+
         elif irc_command == "ROOMSTATE":
             main_info = twitch_tags.split(":")
             channel_info = main_info[0].split('@')[1].split(';')
@@ -487,7 +483,7 @@ def _manage_tags(twitch_tags=''):
                         channels[affected_channel].r9k = False
                     else:
                         channels[affected_channel].r9k = True
-            return True
+
         elif irc_command == "CLEARCHAT":
             main_info = twitch_tags.split(":")
             ban_info = {}
@@ -513,9 +509,6 @@ def _manage_tags(twitch_tags=''):
                 )
 
             # TODO: Consider updating the notification var with timeout/ban info
-            return True
-        return False
-
 
 # TODO: Manage names when joining a channel.
 # TODO: Completely rewrite, use regex instead.
