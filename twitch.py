@@ -1,6 +1,6 @@
 """
 Author: NekoGamiYuki
-Version: 0.0.3
+Version: 0.0.4
 
 Description:
 A simple twitch API. Current version will be rather basic, with the main ability
@@ -565,7 +565,7 @@ def _parse_irc(irc_info=''):
 
         if mod_unmod[0][2] == '-':
             if affected_user.lower() in channels[affected_channel].moderators:
-                for i, user in channels[affected_channel].moderators:
+                for i, user in enumerate(channels[affected_channel].moderators):
                     if user == affected_user:
                         del channels[affected_channel].moderators[i]
         elif mod_unmod[0][2] == '+':
@@ -575,6 +575,7 @@ def _parse_irc(irc_info=''):
         # TODO: Edit user variable!
         sender = irc_chat[0][0]
         affected_channel = irc_chat[0][-2]
+        # TODO: Change name to something more generic?
         sub_resub_notification = irc_chat[0][-1]
         if sender == "twitchnotify":
             notification["channel_name"] = affected_channel
