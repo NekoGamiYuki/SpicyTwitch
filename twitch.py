@@ -236,6 +236,7 @@ class User(object):
                 if extracted_tag_data["badges"]:
                     for badge in extracted_tag_data["badges"].split(','):
                         data = badge.split('/')
+                        # TODO: Convert data[1] to int?
                         self.badges[data[0]] = data[1]
 
                 # Emotes!
@@ -403,7 +404,7 @@ def _manage_tags(input_data=''):
             # Sometimes this breaks, specifically when a user calls leave_channel()
             # as that deletes the channel from the channels dictionary.
             try:
-                # Since we get to see if a user is a mod now, we add them to their
+                # Since we get to see if a user is a mod here, we add them to their
                 # respective channel's moderator list if they're not already there.
                 moderator_list = channels[user.chatted_from].moderators
                 if user.is_mod and user.name not in moderator_list:
