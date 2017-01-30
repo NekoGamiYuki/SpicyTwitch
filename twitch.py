@@ -26,6 +26,7 @@ Example program is located in the 'Examples' folder.
 #       time. So I think what I'll do is set a variable to true, then if our
 #       connection is closed and that variable is true, we will rejoin.
 # TODO: Update all functions to use python3 type hinting
+# TODO: twitchnotifty is the user that notifies everyone of new subscribers
 
 # TODO: Rewrite returns of all functions to take advantage of raising exceptions
 # I want to make it so that I raise exceptions instead of just returning False.
@@ -377,14 +378,20 @@ def _manage_tags(input_data=''):
     """
 
     if input_data:
-        print('-'*80)
-        print("Tags: {}".format(input_data))
-        twitch_data = tags_regex.findall(input_data)[0]
-        print("Regex: {}".format(twitch_data))  # DEBUG!!!
-        extracted_tag_data = {}
-        for data in twitch_data[0].split(';'):
-            extracted_tag_data[data.split('=')[0]] = data.split('=')[1]
-            print("{}: {}".format(data.split('=')[0], data.split('=')[1]))
+        # At times twitch sends some broken/weird data, the one that caused
+        # this one to break was '@user.tmi.twitch.tv PART #channel', since
+        # JOIN/PARTS aren't meant to start with @, this was unexpected and
+        try:
+            print('-'*80)
+            print("Tags: {}".format(input_data))
+            twitch_data = tags_regex.findall(input_data)[0]
+            print("Regex: {}".format(twitch_data))  # DEBUG!!!
+            extracted_tag_data = {}
+            for data in twitch_data[0].split(';'):
+                extracted_tag_data[data.split('=')[0]] = data.split('=')[1]
+                print("{}: {}".format(data.split('=')[0], data.split('=')[1]))
+        except IndexError:
+            return  # We will not try to parse broken/strange data.
 
         # TODO: Consider whether I should do USERSTATE or GLOBALUSERSTATE since
         # PRIVMSG has the same tags.
