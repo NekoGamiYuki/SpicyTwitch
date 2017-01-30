@@ -455,7 +455,6 @@ def _manage_tags(input_data=''):
             elif "host" in message_id:
                 if "on" in message_id:
                     channels[affected_channel].hosting = True
-                    # TODO: Make sure this works
                     channels[affected_channel].hosted_channel = (
                         re.findall(r"Now hosting (\w+).", notification["message"])
                     )
