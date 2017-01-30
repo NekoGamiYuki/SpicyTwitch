@@ -381,6 +381,7 @@ def _manage_tags(input_data=''):
         # At times twitch sends some broken/weird data, the one that caused
         # this one to break was '@user.tmi.twitch.tv PART #channel', since
         # JOIN/PARTS aren't meant to start with @, this was unexpected and
+        # broke the parsing by being sent to the wrong parser.
         try:
             print('-'*80)
             print("Tags: {}".format(input_data))
@@ -454,8 +455,9 @@ def _manage_tags(input_data=''):
             elif "host" in message_id:
                 if "on" in message_id:
                     channels[affected_channel].hosting = True
+                    # TODO: Make sure this works
                     channels[affected_channel].hosted_channel = (
-                        notification.split()[-1].split('.')[0]
+                        re.findall(r"Now hosting (\w+).", notification["message"])
                     )
                 else:
                     channels[affected_channel].hosting = False
