@@ -137,6 +137,8 @@ class Channel(object):
         self.hosted_channel = ''
 
 
+# TODO: If useful for future, add emote url and function for getting the image.
+#       function should cache the image locally for multiple uses.
 class Emote(object):
     """
     Contains information relating to an emote. The Name, ID, and position in
@@ -656,7 +658,7 @@ def _send_info(info):
 # Twitch Interaction------------------------------------------------------------
 def chat(message='', channel=''):
     """
-    Sends a chat message toa specific channel.
+    Sends a chat message to a specific channel.
 
     Args:
         message: What you would like to send to the channel's chat
@@ -788,20 +790,20 @@ def connect(username='', oauth='', protocol="tcp", timeout_seconds=60):
     global _username
     global _oauth
 
-    # Do not attempt to connect if we're already connected!
+    # Do not attempt to connect if we're already connected.
     if is_connected:
         return False
 
-    # Make sure that we were given a protocol that we're able to use
+    # Make sure that we were given a protocol that we're able to use.
     if protocol is not "tcp" and protocol is not "udp":
         raise ValueError(
             "Protocol options are udp/tcp. Was given %s instead." % protocol
         )
     else:
-        # Set the protocol that _send_info() will use
+        # Set the protocol that _send_info() will use.
         _CONNECTION_PROTOCOL = protocol
 
-    # Make sure a username and oauth are given
+    # Make sure a username and oauth are given.
     if not username or not oauth:
         raise ValueError("No username/oauth given")
 
@@ -956,7 +958,7 @@ def get_info(timeout_seconds=None):
             if info:
                 # TODO: Maybe do checks for logging purposes?
                 if info[0] == '@':
-                   _manage_tags(info.strip())
+                    _manage_tags(info.strip())
                 else:
                     _parse_irc(info.strip())
         return True
