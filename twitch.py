@@ -27,6 +27,7 @@ Example program is located in the 'Examples' folder.
 #       connection is closed and that variable is true, we will rejoin.
 # TODO: Update all functions to use python3 type hinting
 # TODO: twitchnotifty is the user that notifies everyone of new subscribers
+# TODO: Need to implement the select module as soon as possible~!
 
 # TODO: Rewrite returns of all functions to take advantage of raising exceptions
 # I want to make it so that I raise exceptions instead of just returning False.
@@ -933,6 +934,9 @@ def get_info(timeout_seconds=None):
         # that is not in the ASCII range, since users might choose to use
         # some rather strange characters.
         return False
+    # TODO: For some reason this begins to be spammed at certain points.
+    #       I believe the issue may have to do with Twitch closing the connection.
+    #       Will know once I implement the Select module.
     print(">>>GET_INFO_FULL: {}".format(information))
 
     if not information:
@@ -950,6 +954,7 @@ def get_info(timeout_seconds=None):
         for info in information.split('\n'):
             print(">>>GET_INFO: {}".format(info.strip()))
             if info:
+                # TODO: Maybe do checks for logging purposes?
                 if info[0] == '@':
                    _manage_tags(info.strip())
                 else:
