@@ -28,6 +28,11 @@ Example program is located in the 'Examples' folder.
 # TODO: Update all functions to use python3 type hinting
 # TODO: twitchnotifty is the user that notifies everyone of new subscribers
 # TODO: Need to implement the select module as soon as possible~!
+# TODO: Consider merging SpicyTwitchIRC and SpicyBotAPI into SpicyTwitch.bot
+#       and Spicytwitch.irc respectively, as a single package.
+# TODO: Either turn this into a class or create a class using this module. This
+#       will allow for the use of multiple users, which will be useful for certain
+#       applications that might want to allow multi-user applications
 
 # TODO: Rewrite returns of all functions to take advantage of raising exceptions
 # I want to make it so that I raise exceptions instead of just returning False.
@@ -236,6 +241,10 @@ class User(object):
                 else:
                     self.color = extracted_tag_data["color"]
 
+                # NOTE: Twitch actually shows the months/bits for the badge a user has. I just
+                #       saw someone talked that had "subscriber/6" and "bits/10000", then checked
+                #       twitch chat and it showed them with a 6 month sub badge and a cheer 10000
+                #       badge!
                 self.badges = {}
                 if extracted_tag_data["badges"]:
                     for badge in extracted_tag_data["badges"].split(','):
