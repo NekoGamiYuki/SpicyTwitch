@@ -120,7 +120,7 @@ class Channel(object):
 
     """
 
-    def __init__(self, name=''):
+    def __init__(self, name: str):
         if name:
             self.name = name
         else:
@@ -156,9 +156,9 @@ class Emote(object):
 
     """
 
-    def __init__(self, name, id, start, end):
+    def __init__(self, name: str, id_number: int, start: int, end: int):
         self.name = name
-        self.id = id
+        self.id = id_number
         self.position = {"start": start, "end": end}
 
 
@@ -260,8 +260,9 @@ class User(object):
                             start = int(position.split('-')[0])
                             end = int(position.split('-')[1]) + 1
                             name = self.message[start:end]
-                            self.emotes.append(Emote(name,  # Name
-                                                      info.split(":")[0],  # ID
+                            id = int(info.split(":")[0])
+                            self.emotes.append(Emote(name,
+                                                      id,
                                                       start,  # Start position
                                                       end))  # end position
 
@@ -287,7 +288,7 @@ class User(object):
                 self.error = error_information
 
     # Would "reply" be a better name?
-    def send_message(self, message, append_symbol=True):
+    def send_message(self, message: str, append_symbol=True) -> bool:
         """
         Send a message to this user. This is for chatting, not twitch messaging
         nor whispering. It pops up in chat as "@user <message>"
@@ -301,6 +302,9 @@ class User(object):
             False: If it fails to send the message.
 
         """
+        if not message:
+            return False
+
         if append_symbol:
             formatted_message = "{}{} {}".format('@', self.name, message)
         else:
@@ -311,7 +315,7 @@ class User(object):
         else:
             return True
 
-    def purge(self, reason=''):
+    def purge(self, reason='') -> bool:
         """
         Purges (times out for 1 second) this user.
 
@@ -328,7 +332,7 @@ class User(object):
         else:
             return False
 
-    def timeout(self, seconds=600, reason=''):
+    def timeout(self, seconds=600, reason='') -> bool:
         """
         Times out this user.
 
@@ -347,7 +351,7 @@ class User(object):
         else:
             return False
 
-    def ban(self, reason=''):
+    def ban(self, reason='') -> bool:
         """
         Permanently Bans this user. Can be given a reason, which shows up in
         chat as a twitch notification.
@@ -372,7 +376,7 @@ class User(object):
 #       which function to use.
 # TODO: Manage GLOBALUSERSTATE, use to create a "me" variable that contains our
 #       user's information.
-def _manage_tags(input_data=''):
+def _manage_tags(input_data: str):
     """
     Manages most tags given by Twitch. Specifically, it manages PRIVMSG, NOTICE,
     ROOMSTATE, and CLEARCHAT tags. Updates the corresponding variables, such as
@@ -519,7 +523,7 @@ def _manage_tags(input_data=''):
 
 # TODO: Implement regex for HOSTTARGET and manage RECONNECT calls.
 # TODO: Manage CAP NAK
-def _parse_irc(irc_info=''):
+def _parse_irc(irc_info: str):
     """
     Parses any information that _manage_tags does not. This, for now, is just
     any JOINS and PARTS, as well as whenever hosting is started (however,
@@ -605,7 +609,7 @@ def _parse_irc(irc_info=''):
 
 # Twitch Communication----------------------------------------------------------
 # TODO: Actually increment the "commands_sent" variable.
-def _send_info(info):
+def _send_info(info: str) -> bool:
     """
     This is the most used function within the API. It serves one purpose, to
     communicate directly with twitch. _send_info() takes one argument, "info",
@@ -677,7 +681,7 @@ def _send_info(info):
 
 
 # Twitch Interaction------------------------------------------------------------
-def chat(message='', channel=''):
+def chat(message: str, channel: str) -> bool:
     """
     Sends a chat message to a specific channel.
 
@@ -698,7 +702,7 @@ def chat(message='', channel=''):
             return True
 
 
-def join_channel(channel='', rejoin=False):
+def join_channel(channel: str, rejoin=False) -> bool:
     """
     Joins a channel's chat, allowing the API to receive information from that
     channel. Updates the channels variable with a new channel object, named
@@ -728,7 +732,7 @@ def join_channel(channel='', rejoin=False):
             return True
 
 
-def leave_channel(channel, rejoin=False):
+def leave_channel(channel: str, rejoin=False) -> bool:
     """
     Leaves a channel, stopping the API from receiving information related to
     that channel. Also removes the channel from the channels dictionary.
@@ -759,7 +763,7 @@ def leave_channel(channel, rejoin=False):
                 return True
 
 
-def rejoin_channel(channel=''):
+def rejoin_channel(channel: str) -> bool:
     """
     Rejoins a channel.
 
@@ -783,7 +787,7 @@ def rejoin_channel(channel=''):
 
 
 # Twitch Connection Management--------------------------------------------------
-def connect(username='', oauth='', protocol="tcp", timeout_seconds=60):
+def connect(username: str, oauth: str, protocol="tcp", timeout_seconds=60) -> bool:
     """
     Connects to twitch, logging the user in.
 
@@ -908,7 +912,7 @@ def reconnect():
             return True
 
 
-def get_info(timeout_seconds=None):
+def get_info(timeout_seconds=None) -> bool:
     """
     Gets information from twitch and hands it over to parsers. Also manages any
     PING's sent by twitch, automatically replying with a PONG.
