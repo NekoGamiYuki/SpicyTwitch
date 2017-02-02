@@ -649,19 +649,31 @@ def _send_info(info):
             _commands_sent = 0
             _send_time = time.time()
         if _commands_sent < _RATE:
-            # ??? There's a chance that we might disconnect or have a hiccup
-            try:
-                # NOTE: Do not loop in an attempt to resend possibly incomplete
-                # info as you will face the consequences... 2 hours of waiting
-                # here I come...
-                if _CONNECTION_PROTOCOL is "tcp":
-                    _SOCK.send(info.encode("utf-8"))
-                    return True
-                elif _CONNECTION_PROTOCOL is "udp":
-                    _SOCK.sendto(info.encode("utf-8"), (_TWITCH, _PORT))
-                    return True
-            except InterruptedError:
-                return False
+
+            total_sent = 0
+            message = info.encode('utf-8')
+            while total_sent < len(message):
+                # ??? There's a chance that we might disconnect or have a hiccup
+                try:
+                    # NOTE: Do not loop in an attempt to resend possibly incomplete
+                    # info as you will face the consequences... 2 hours of waiting
+                    # here I come...
+                    if _CONNECTION_PROTOCOL is "tcp":
+                        sent = _SOCK.send(message[total_sent:])
+
+                        if sent == 0:
+                            raise RuntimeError("Socket connection broken.")
+                        total_sent += sent
+                        return True
+                    elif _CONNECTION_PROTOCOL is "udp":
+                        sent = _SOCK.sendto(message[total_sent:], (_TWITCH, _PORT))
+
+                        if sent == 0:
+                            raise RuntimeError("Socket connection broken.")
+                        total_sent += sent
+                        return True
+                except InterruptedError:
+                    return False
 
 
 # Twitch Interaction------------------------------------------------------------
