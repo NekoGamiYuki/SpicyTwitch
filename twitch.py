@@ -932,8 +932,11 @@ def get_info(timeout_seconds=None) -> bool:
     _SOCK.settimeout(timeout_seconds)
     try:
         information = _SOCK.recv(4096)
+        # Check if socket is closed.
+        if information == b'' or len(information) == 0:
+            raise RuntimeError("Twitch has closed the connection.")
     except socket.timeout:
-        disconnect()
+        disconnect()  # Unsure if I should disconnect or raise an error? Likely better to raise.
         return False
 
     # ??? We set user to None in here in order to make sure the user of this API
