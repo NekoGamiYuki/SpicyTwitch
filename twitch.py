@@ -538,10 +538,10 @@ def _manage_tags(input_data: str):
                     channels[affected_channel].subscribers_only = True
             elif "followers-only" in extracted_tag_data.keys():
                 if '-1' in extracted_tag_data["followers-only"]:
-                    irc_logger.info("Marking followers only mod as off for {}.".format(affected_channel))
+                    irc_logger.info("Marking followers-only mode as off for {}.".format(affected_channel))
                     channels[affected_channel].followers_only = False
                 else:
-                    irc_logger.info("Marking followers only mod as on for {}.".format(affected_channel))
+                    irc_logger.info("Marking followers-only mode as on for {}.".format(affected_channel))
                     channels[affected_channel].followers_only = True
             elif "r9k" in extracted_tag_data.keys():
                 if '0' in extracted_tag_data["r9k"]:
