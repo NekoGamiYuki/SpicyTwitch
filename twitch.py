@@ -46,6 +46,7 @@ Example program is located in the 'Examples' folder.
 # Imported Modules--------------------------------------------------------------
 import warnings
 import logging
+from logging import NullHandler
 import socket
 import time
 import re
@@ -76,6 +77,7 @@ user = None  # Once initialized by get_info() it contains a single users info
 
 # Logging
 irc_logger = logging.getLogger(__name__)
+irc_logger.addHandler(NullHandler())
 logging.basicConfig(format='[%(asctime)s] [%(LevelName)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
 # Regular Expressions-----------------------------------------------------------
