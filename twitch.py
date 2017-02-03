@@ -1074,7 +1074,6 @@ def get_info(timeout_seconds=None) -> bool:
         irc_logger.info("Sending data over to parsers.")
         # Time to parse the information we received!
         for info in information.split('\n'):
-            print(">>>GET_INFO: {}".format(info.strip()))
             if info:
                 # TODO: Maybe do checks for logging purposes?
                 if info[0] == '@':
