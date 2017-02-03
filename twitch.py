@@ -78,7 +78,7 @@ user = None  # Once initialized by get_info() it contains a single users info
 # Logging
 irc_logger = logging.getLogger(__name__)
 irc_logger.addHandler(NullHandler())
-logging.basicConfig(format='[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.basicConfig(format='[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): %(message)s', datefmt='%Y/%m/%d %I:%M:%S %p')
 
 # Regular Expressions-----------------------------------------------------------
 # TODO: do a re.match for each of these to test which parser to send the information to?
@@ -143,10 +143,11 @@ class Channel(object):
         self.timed_out_users = {}
         self.viewers = []
         self.language = ''
-        self.slow = False
+        self.slow_mode = False
         self.slow_time = 0
-        self.r9k = False
-        self.subscriber = False
+        self.r9k_mode = False
+        self.subscribers_only = False
+        self.followers_only = False
         self.hosting = False
         self.hosted_channel = ''
 
@@ -385,6 +386,7 @@ class User(object):
 #       which function to use.
 # TODO: Manage GLOBALUSERSTATE, use to create a "me" variable that contains our
 #       user's information.
+# TODO: Add check for followers_only (-1 when off).
 def _manage_tags(input_data: str):
     """
     Manages most tags given by Twitch. Specifically, it manages PRIVMSG, NOTICE,
@@ -518,12 +520,12 @@ def _manage_tags(input_data: str):
             elif "slow" in extracted_tag_data.keys():
                 if extracted_tag_data["slow"] == '0':
                     irc_logger.info("Marking slow mode as off for {}.".format(affected_channel))
-                    channels[affected_channel].slow = False
+                    channels[affected_channel].slow_mode = False
                     channels[affected_channel].slow_time = 0
                     irc_logger.info("Slow time is set to 0 for {}.".format(affected_channel))
 
                 else:
-                    channels[affected_channel].slow = True
+                    channels[affected_channel].slow_mode = True
                     channels[affected_channel].slow_time = int(extracted_tag_data["slow"])
                     irc_logger.info("Slow time is set to {} for {}.".format(
                         extracted_tag_data["slow"], affected_channel
@@ -532,17 +534,17 @@ def _manage_tags(input_data: str):
             elif "subs-only" in extracted_tag_data.keys():
                 if '0' in extracted_tag_data["subs-only"]:
                     irc_logger.info("Marking subscriber mode as off for {}.".format(affected_channel))
-                    channels[affected_channel].subscriber = False
+                    channels[affected_channel].subscribers_only = False
                 else:
                     irc_logger.info("Marking subscriber mode as on for {}.".format(affected_channel))
-                    channels[affected_channel].subscriber = True
+                    channels[affected_channel].subscribers_only = True
             elif "r9k" in extracted_tag_data.keys():
                 if '0' in extracted_tag_data["r9k"]:
                     irc_logger.info("Marking r9k mode as off for {}.".format(affected_channel))
-                    channels[affected_channel].r9k = False
+                    channels[affected_channel].r9k_mode = False
                 else:
                     irc_logger.info("Marking r9k mode as on for {}.".format(affected_channel))
-                    channels[affected_channel].r9k = True
+                    channels[affected_channel].r9k_mode = True
 
         elif twitch_data[-3] == "CLEARCHAT":
             affected_channel = twitch_data[-2]
