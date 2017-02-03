@@ -78,7 +78,7 @@ user = None  # Once initialized by get_info() it contains a single users info
 # Logging
 irc_logger = logging.getLogger(__name__)
 irc_logger.addHandler(NullHandler())
-                    datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.basicConfig(format='[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
 # Regular Expressions-----------------------------------------------------------
 # TODO: do a re.match for each of these to test which parser to send the information to?
