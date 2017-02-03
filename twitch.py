@@ -386,7 +386,6 @@ class User(object):
 #       which function to use.
 # TODO: Manage GLOBALUSERSTATE, use to create a "me" variable that contains our
 #       user's information.
-# TODO: Add check for followers_only (-1 when off).
 def _manage_tags(input_data: str):
     """
     Manages most tags given by Twitch. Specifically, it manages PRIVMSG, NOTICE,
@@ -530,7 +529,6 @@ def _manage_tags(input_data: str):
                     irc_logger.info("Slow time is set to {} for {}.".format(
                         extracted_tag_data["slow"], affected_channel
                     ))
-
             elif "subs-only" in extracted_tag_data.keys():
                 if '0' in extracted_tag_data["subs-only"]:
                     irc_logger.info("Marking subscriber mode as off for {}.".format(affected_channel))
@@ -538,6 +536,13 @@ def _manage_tags(input_data: str):
                 else:
                     irc_logger.info("Marking subscriber mode as on for {}.".format(affected_channel))
                     channels[affected_channel].subscribers_only = True
+            elif "followers-only" in extracted_tag_data.keys():
+                if '-1' in extracted_tag_data["followers-only"]:
+                    irc_logger.info("Marking followers only mod as off for {}.".format(affected_channel))
+                    channels[affected_channel].followers_only = False
+                else:
+                    irc_logger.info("Marking followers only mod as on for {}.".format(affected_channel))
+                    channels[affected_channel].followers_only = True
             elif "r9k" in extracted_tag_data.keys():
                 if '0' in extracted_tag_data["r9k"]:
                     irc_logger.info("Marking r9k mode as off for {}.".format(affected_channel))
@@ -1016,12 +1021,11 @@ def get_info(timeout_seconds=None) -> bool:
         information = _SOCK.recv(4096)
         # Check if socket is closed.
         if information == b'' or len(information) == 0:
-            # TODO: Look into raising errors. Unsure if this is the correct error.
             if _RECONNECT:
                 irc_logger.info("Reconnecting to Twitch.")
                 if not reconnect():
                     irc_logger.warning("Failed to reconnect to to Twitch.")
-                    raise RuntimeError("Twitch has closed the connection.")
+                    raise ConnectionAbortedError("Twitch has closed the connection.")
                 return True
             irc_logger.warning("Twitch has closed the connection.")
             raise RuntimeError("Twitch has closed the connection.")
@@ -1063,10 +1067,12 @@ def get_info(timeout_seconds=None) -> bool:
 
     if not information:
         return False
-    elif "RECONNECT" in information and "PRIVMSG" not in information:
+    elif "RECONNECT" in information and "PRIVMSG" not in information:  # Yet to be tested.
+        # NOTE: Twitch does not show what the RECONNECT message/notification looks like. I'm left to a rough guess of
+        #       what to search for. So for now, all I'm searching for is RECONNECT and making sure it's not a chat
+        #       message.
         global _RECONNECT
         _RECONNECT = True
-        # TODO: Add reconnect functionality
         pass
     elif information == "PING :tmi.twitch.tv\r\n":  # Ping Pong time.
         irc_logger.info("Received PING, sending PONG.")
