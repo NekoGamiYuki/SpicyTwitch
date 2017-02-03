@@ -1057,7 +1057,7 @@ def get_info(timeout_seconds=None) -> bool:
     # TODO: For some reason this begins to be spammed at certain points.
     #       I believe the issue may have to do with Twitch closing the connection.
     #       Will know once I implement the Select module.
-    print(">>>GET_INFO_FULL: {}".format(information))
+    # print(">>>GET_INFO_FULL: {}".format(information))
 
     if not information:
         return False
