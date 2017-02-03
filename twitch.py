@@ -609,7 +609,7 @@ def _parse_irc(irc_info: str):
         # join a channel.
         names_affected_channel = names_start[0][0]
         name_list = names_start[0][1].split()
-        irc_logger.debug("Adding usernames to {}'s viewers list.".format(names_affected_channel))
+        irc_logger.info("Adding usernames to {}'s viewers list.".format(names_affected_channel))
         for name in name_list:
             if name not in channels[names_affected_channel].viewers:
                 channels[names_affected_channel].viewers.append(name)
@@ -627,11 +627,11 @@ def _parse_irc(irc_info: str):
 
         if join_part[0][-2] == "JOIN":
             if username not in channels[affected_channel].viewers:
-                irc_logger.debug("Adding {} to {}'s viewers list.".format(username, affected_channel))
+                irc_logger.info("Adding {} to {}'s viewers list.".format(username, affected_channel))
                 channels[affected_channel].viewers.append(username)
         elif join_part[0][-2] == "PART":
             if username in channels[affected_channel].viewers:
-                irc_logger.debug("Removing {} from {}'s viewer list.".format(username, affected_channel))
+                irc_logger.info("Removing {} from {}'s viewer list.".format(username, affected_channel))
                 channels[affected_channel].viewers.remove(username)
 
     elif mod_unmod:
@@ -642,11 +642,11 @@ def _parse_irc(irc_info: str):
             if affected_user.lower() in channels[affected_channel].moderators:
                 for i, username in enumerate(channels[affected_channel].moderators):
                     if username == affected_user:
-                        irc_logger.debug("Removing {} from {}'s mod list.".format(affected_user, affected_channel))
+                        irc_logger.info("Removing {} from {}'s mod list.".format(affected_user, affected_channel))
                         del channels[affected_channel].moderators[i]
         elif mod_unmod[0][2] == '+':
             if affected_user.lower() not in channels[affected_channel].moderators:
-                irc_logger.debug("Adding {} to {}'s mod list.".format(affected_user, affected_channel))
+                irc_logger.info("Adding {} to {}'s mod list.".format(affected_user, affected_channel))
                 channels[affected_channel].moderators.append(affected_user.lower())
     elif irc_chat:
         # TODO: Edit user variable!
@@ -655,7 +655,7 @@ def _parse_irc(irc_info: str):
         # TODO: Change name to something more generic?
         sub_resub_notification = irc_chat[0][-1]
         if sender == "twitchnotify":
-            irc_logger.debug("Updating notification dictionary.")
+            irc_logger.info("Updating notification dictionary.")
             notification["channel_name"] = affected_channel
             notification["message"] = sub_resub_notification
 
