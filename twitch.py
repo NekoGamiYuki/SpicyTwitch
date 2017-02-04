@@ -927,7 +927,7 @@ def connect(username: str, oauth: str, protocol="tcp", timeout_seconds=60) -> bo
     # Check if the login details were correct
     # TODO: Move this over to get_info()? or a "check_login" function?
     response = _SOCK.recv(512).decode()
-    if not response or "Error logging in" in response:
+    if not response or "Login authentication failed" in response:
         warnings.warn("Login failed. Check username or oauth and try again.")
         _SOCK.close()
         return False
