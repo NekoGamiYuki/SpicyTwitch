@@ -297,7 +297,7 @@ class User(object):
                 self.command = error_filler
                 self.error = error_information
 
-    # Would "reply" be a better name?
+    # NOTE: Would "reply" be a better name?
     def send_message(self, message: str, append_symbol=True) -> bool:
         """
         Send a message to this user. This is for chatting, not twitch messaging
