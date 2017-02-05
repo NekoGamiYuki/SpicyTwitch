@@ -1,6 +1,6 @@
 """
 Author: NekoGamiYuki
-Version: 0.0.4
+Version: 0.1.5
 
 Description:
 A simple twitch API. Current version will be rather basic, with the main ability
