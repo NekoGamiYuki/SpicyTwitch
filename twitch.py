@@ -1054,7 +1054,6 @@ def get_info(timeout_seconds=None) -> bool:
     user = None
     notification = {}
 
-    #TODO: Consider throwing an error instead of ignoring the chat message.
     try:
         # ??? utf-8 is required, as twitch is a global platform and there are
         # times when a user might post in a character set that isn't ascii, such
