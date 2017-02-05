@@ -110,15 +110,15 @@ class Channel(object):
     Information contained in class:
     name: Name of the channel
     moderators: Moderators of the channel, updated when a mod chats
-    operators: General "mods", also includes admins and higher level users
     banned_users: All banned users since you joined, and any reasons for the ban
-    timed_out_users: All users that have been timed out, and the seconds.
+    timed_out_users: All users that have been timed out, and the seconds/reason.
     viewers: A list of all viewers.
     language: If a channel designated a language, it goes here.
-    slow: Whether the channel has slow mode on
+    slow_mode: Whether the channel has slow mode on
     slow_time: The time for the slow mode cooldown
-    r9k: Whether the channel has r9kbeta on
-    subscriber: Whether the channel has subscriber-mode on
+    r9k_mode: Whether the channel has r9kbeta on
+    subscribers_only: Whether the channel has subscriber-mode on
+    followers_only: Whether the channel has followers-mode on.
     hosting: Whether the channel is hosting
     hosted_channel: What channel is being hosted
 
@@ -133,7 +133,6 @@ class Channel(object):
         # How many messages were chatted since you joined
         self.message_count = 0
         self.moderators = []
-        self.operators = []  # Use when we can't get exact info on moderators
         self.banned_users = {}
         self.timed_out_users = {}
         self.viewers = []
@@ -820,6 +819,7 @@ def join_channel(channel: str, rejoin=False) -> bool:
         warnings.warn("join_channel() was not given a channel to join. Instead received an empty string.")
         return False
     elif channel in channels and not rejoin:
+        warnings.warn("{} is already joined.".format(channel))
         return False
     else:
         if not _send_info("JOIN #%s\r\n" % channel):
