@@ -563,6 +563,9 @@ def _manage_tags(input_data: str):
             # TODO: Once updated ^ add logging calls as well.
             # With ban-duration, the user is timed out.
             if "ban-duration" in extracted_tag_data.keys():
+                irc_logger.info("Added {} to timed out users in {}'s channel.".format(
+                    affected_user, affected_channel
+                ))
                 channels[affected_channel].timed_out_users[affected_user] = {
                     "duration": extracted_tag_data["ban-duration"]
                 }
@@ -572,6 +575,9 @@ def _manage_tags(input_data: str):
                     }
             # WIth no ban-duration, the user is perma banned.
             elif "ban-reason" in extracted_tag_data.keys():
+                irc_logger.info("Added {} to banned users in {}'s channel.".format(
+                    affected_user, affected_channel
+                ))
                 channels[affected_channel].banned_users[affected_user] = {
                     "reason": extracted_tag_data["ban-reason"]
                 }
