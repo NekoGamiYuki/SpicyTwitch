@@ -507,10 +507,14 @@ def _manage_tags(input_data: str):
             # TODO: Check for "followers-only"
             irc_logger.info("Getting channel ROOMSTATE (Basic information for when you first enter a channel).")
             if "broadcaster-lang" in extracted_tag_data.keys():
-                irc_logger.info("Setting {}'s channel language as {}.".format(
-                    affected_channel, extracted_tag_data["broadcaster-lang"]
-                ))
-                channels[affected_channel].language = extracted_tag_data["broadcaster-lang"]
+                if extracted_tag_data["broadcaster-lang"]:
+                    irc_logger.info("Setting {}'s channel language as {}.".format(
+                        affected_channel, extracted_tag_data["broadcaster-lang"]
+                    ))
+                    channels[affected_channel].language = extracted_tag_data["broadcaster-lang"]
+                else:
+                    irc_logger.info("Channel {} has not set its language. This is ok.".format(affected_channel))
+                    channels[affected_channel].language = ''
             elif "slow" in extracted_tag_data.keys():
                 if extracted_tag_data["slow"] == '0':
                     irc_logger.info("Marking slow mode as off for {}.".format(affected_channel))
