@@ -561,14 +561,20 @@ def _manage_tags(input_data: str):
             # TODO: Also remove users after allotted amount of time. Or add time when user was
             #       timed out/banned.
             # TODO: Once updated ^ add logging calls as well.
+            # With ban-duration, the user is timed out.
             if "ban-duration" in extracted_tag_data.keys():
-                channels[affected_channel].timed_out_users[affected_user] = (
-                    extracted_tag_data["ban-duration"]
-                )
+                channels[affected_channel].timed_out_users[affected_user] = {
+                    "duration": extracted_tag_data["ban-duration"]
+                }
+                if "ban-reason" in extracted_tag_data.keys():
+                    channels[affected_channel].timed_out_users[affected_user] = {
+                        "reason": extracted_tag_data["ban-reason"]
+                    }
+            # WIth no ban-duration, the user is perma banned.
             elif "ban-reason" in extracted_tag_data.keys():
-                channels[affected_channel].banned_users[affected_user] = (
-                    extracted_tag_data["ban-reason"]
-                )
+                channels[affected_channel].banned_users[affected_user] = {
+                    "reason": extracted_tag_data["ban-reason"]
+                }
 
             # TODO: Consider updating the notification var with timeout/ban info
 
