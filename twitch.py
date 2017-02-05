@@ -1,6 +1,6 @@
 """
 Author: NekoGamiYuki
-Version: 0.1.5
+Version: 0.1.6
 
 Description:
 A simple twitch API. Current version will be rather basic, with the main ability
@@ -489,7 +489,7 @@ def _manage_tags(input_data: str):
             # TODO: NEED TO CHECK IF THIS STILL WORKS!
             elif "host" in message_id:
                 if "on" in message_id:
-                    hosted_channel = re.findall(r"Now hosting (\w+).", notification["message"])
+                    hosted_channel = re.findall(r"Now hosting (\w+).", notification["message"])[0]
                     irc_logger.info("Marking host mode as on for {}.".format(affected_channel))
                     channels[affected_channel].hosting = True
                     irc_logger.info("Setting {} as hosted channel for {}.".format(
