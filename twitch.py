@@ -20,12 +20,7 @@ Example program is located in the 'Examples' folder.
 # TODO: If desired, I could put all of this into a class. That would make this
 #       module capable of managing multiple bots. Though I find that unnecessary,
 #       but cool.
-# TODO: Check if twitch has implemented sub badge years into tags.
 # TODO: Add local time to User class.
-# TODO: Add reaction for 'REJOIN' command. It closes our connection after some
-#       time. So I think what I'll do is set a variable to true, then if our
-#       connection is closed and that variable is true, we will rejoin.
-# TODO: Update all functions to use python3 type hinting
 # TODO: twitchnotifty is the user that notifies everyone of new subscribers
 # TODO: Need to implement the select module as soon as possible~!
 # TODO: Consider merging SpicyTwitchIRC and SpicyBotAPI into SpicyTwitch.bot
@@ -667,8 +662,29 @@ def _parse_irc(irc_info: str):
             if affected_user.lower() not in channels[affected_channel].moderators:
                 irc_logger.info("Adding {} to {}'s mod list.".format(affected_user, affected_channel))
                 channels[affected_channel].moderators.append(affected_user.lower())
+    elif cap:
+        ack_nack = cap[0][0]
+        request = cap[0][1]
+
+        # TODO: Do something when memberships are acknowledged/denied
+        if request == "membership":
+            if ack_nack == "ACK":
+                irc_logger.info("IRCv3 membership acknowledged by Twitch.")
+            else:
+                irc_logger.warning("IRCv3 membership denied by Twitch.")
+        elif request == "commands":
+            if ack_nack == "ACK":
+                irc_logger.info("Commands request acknowledged by Twitch.")
+            else:
+                irc_logger.warning("Commands request denied by Twitch.")
+        elif request == "tags":
+            if ack_nack == "ACK":
+                irc_logger.info("Tags request acknowledged by Twitch.")
+            else:
+                irc_logger.warning("Tags request denied by Twitch.")
+
     elif irc_chat:
-        # TODO: Edit user variable!
+        # TODO: Edit user variable(?)
         sender = irc_chat[0][0]
         affected_channel = irc_chat[0][-2]
         # TODO: Change name to something more generic?
