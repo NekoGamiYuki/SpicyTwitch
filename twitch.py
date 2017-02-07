@@ -437,17 +437,17 @@ def _manage_tags(input_data: str):
                 # Since we get to see if a user is a mod here, we add them to their
                 # respective channel's moderator list if they're not already there.
                 moderator_list = channels[user.chatted_from].moderators
-                if user.is_mod and user.name not in moderator_list:
+                if user.is_mod and user.name.lower() not in moderator_list:
                     irc_logger.info("Adding {} to {}'s mod list.".format(user.name, user.chatted_from))
                     channels[user.chatted_from].moderators.append(user.name)
-                elif not user.is_mod and user.name in moderator_list:
+                elif not user.is_mod and user.name.lower() in moderator_list:
                     irc_logger.info("Removing {} from {}'s mod list.".format(user.name, user.chatted_from))
                     channels[user.chatted_from].moderators.remove(user.name)
 
                 # We can also add them to the list of viewers if they weren't
                 # already there.
                 viewers = channels[user.chatted_from].viewers
-                if user.name and user.name not in viewers:
+                if user.name and user.name.lower() not in viewers:
                     irc_logger.info("Adding {} to {}'s viewer list.".format(user.name, user.chatted_from))
                     channels[user.chatted_from].viewers.append(user.name)
             except KeyError:
