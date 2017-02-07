@@ -448,8 +448,8 @@ def _manage_tags(input_data: str):
                 # already there.
                 viewers = channels[user.chatted_from].viewers
                 if user.name and user.name.lower() not in viewers:
-                    irc_logger.info("Adding {} to {}'s viewer list.".format(user.name, user.chatted_from))
-                    channels[user.chatted_from].viewers.append(user.name)
+                    irc_logger.info("Adding {} to {}'s viewer list.".format(user.name.lower(), user.chatted_from))
+                    channels[user.chatted_from].viewers.append(user.name.lower())
             except KeyError:
                 irc_logger.error("Attempted to add user to a channel list that no longer exists. This is likely a "
                                  "result from leaving a channel while the module parsed a user's chat message. Nothing "
@@ -626,10 +626,10 @@ def _parse_irc(irc_info: str):
         # join a channel.
         names_affected_channel = names_start[0][0]
         name_list = names_start[0][1].split()
-        irc_logger.info("Adding usernames to {}'s viewers list.".format(names_affected_channel))
+        irc_logger.info("Adding multiple usernames to {}'s viewers list.".format(names_affected_channel))
         for name in name_list:
-            if name not in channels[names_affected_channel].viewers:
-                channels[names_affected_channel].viewers.append(name)
+            if name.lower() not in channels[names_affected_channel].viewers:
+                channels[names_affected_channel].viewers.append(name.lower())
     elif join_part:
         username = join_part[0][0]
         affected_channel = join_part[0][-1]
