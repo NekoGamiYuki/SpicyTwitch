@@ -512,7 +512,7 @@ def _manage_tags(input_data: str):
                     ))
                     channels[affected_channel].language = extracted_tag_data["broadcaster-lang"]
                 else:
-                    irc_logger.info("Channel {} has not set its language. This is ok.".format(affected_channel))
+                    irc_logger.warning("Channel {} has not set its language. This is ok in most cases.".format(affected_channel))
                     channels[affected_channel].language = ''
             elif "slow" in extracted_tag_data.keys():
                 if extracted_tag_data["slow"] == '0':
