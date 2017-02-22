@@ -45,6 +45,7 @@ from logging import NullHandler
 import socket
 import time
 import re
+import os
 
 # Global Variables--------------------------------------------------------------
 _SOCK = None
@@ -72,8 +73,8 @@ user = None  # Once initialized by get_info() it contains a single users info
 
 # Logging
 irc_logger = logging.getLogger(__name__)
-irc_logger.addHandler(NullHandler())
-logging.basicConfig(format='[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): %(message)s', datefmt='%Y/%m/%d %I:%M:%S %p')
+logging.basicConfig(format='[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): %(message)s',
+                    datefmt='%Y/%m/%d %I:%M:%S %p')
 
 # Regular Expressions-----------------------------------------------------------
 # TODO: do a re.match for each of these to test which parser to send the information to?
@@ -98,6 +99,23 @@ names_end_regex = re.compile(r"^:\w+\.tmi\.twitch\.tv 366 \w+ #(\w+) :([\S\s]+)"
 #       than one match, maybe discard? Or throw into an "unknown" bin.
 join_part_regex = re.compile(r"^:(\w+)!(\w+@\w+\.tmi\.twitch\.tv) ([A-Z]+) #(\w+)")
 mod_regex = re.compile(r"^:jtv ([A-Z]+) #(\w+) ([-+])o (\w+)")
+
+
+# Logging-----------------------------------------------------------------------
+def enable_logging(level=logging.INFO, log_to_file=False, file_path=''):
+    # To print logs to the console/terminal.
+    irc_logger.addHandler(NullHandler())
+
+    # For saving logs to a file. Currently only saves to a single file. Considering making it save to
+    # a new file based on the date, so as to not have an extremely large log file.
+    if log_to_file:
+        if not os.path.exists(file_path):
+            os.makedirs(file_path)
+
+        file_handler = logging.FileHandler(file_path)
+        irc_logger.addHandler(file_handler)
+
+    irc_logger.setLevel(level)
 
 
 # Classes-----------------------------------------------------------------------
@@ -1079,6 +1097,7 @@ def get_info(timeout_seconds=None) -> bool:
         # times when a user might post in a character set that isn't ascii, such
         # as when typing in a foreign language. Without utf-8 decoding, the API
         # crashes at the sight of a foreign character.
+        # TODO: Consider adding "errors='replace'" instead of the warning?
         information = information.decode('utf-8')
     except UnicodeDecodeError:
         # But sadly, the API still has some issues when it comes to unicode.
