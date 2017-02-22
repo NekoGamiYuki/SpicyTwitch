@@ -1064,6 +1064,8 @@ def get_info(timeout_seconds=None) -> bool:
         True: If all information is parsed or if a PONG is sent.
 
     """
+    global _RECONNECT
+
     # Disable timeouts by default, in order to not disconnect from twitch no
     # matter how much time passes by.
     _SOCK.settimeout(timeout_seconds)
@@ -1121,7 +1123,6 @@ def get_info(timeout_seconds=None) -> bool:
         # NOTE: Twitch does not show what the RECONNECT message/notification looks like. I'm left to a rough guess of
         #       what to search for. So for now, all I'm searching for is RECONNECT and making sure it's not a chat
         #       message.
-        global _RECONNECT
         _RECONNECT = True
         pass
     elif information == "PING :tmi.twitch.tv\r\n":  # Ping Pong time.
