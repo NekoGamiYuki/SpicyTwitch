@@ -2,8 +2,7 @@
 A simple Python module for communicating with twitch chat via IRC.
 
 ## Is it stable?
-Not just yet. It's been some time since I last updated it, recently had it crash
-on me.
+Not just yet.
 
 ## Can I use this?
 Go ahead, just know that it's still in development and will have many changes as
