@@ -11,6 +11,6 @@ scale (I'm developing this for use in a Twitch Bot) so you might find some code
 that you feel could be done better.
 
 ## Any big plans?
-I intend to turn this into a full-blwon package for building twitch bots. I'm
+I intend to turn this into a full-blown package for building twitch bots. I'm
 unsure if this is something I'll be continuing to support for years to come, but
 for the time being it is my main project.
