@@ -1,6 +1,6 @@
 """
 Author: NekoGamiYuki
-Version: 0.2.6
+Version: 0.2.7
 
 Description:
 A simple twitch API. Current version will be rather basic, with the main ability
@@ -458,7 +458,7 @@ def _manage_tags(input_data: str):
                 if user.is_mod and user.name.lower() not in moderator_list:
                     irc_logger.info("Adding {} to {}'s mod list.".format(user.name, user.chatted_from))
                     channels[user.chatted_from].moderators.append(user.name)
-                elif not user.is_mod and user.name.lower() in moderator_list:
+                elif not user.is_mod and not user.is_broadcaster and user.name.lower() in moderator_list:
                     irc_logger.info("Removing {} from {}'s mod list.".format(user.name, user.chatted_from))
                     channels[user.chatted_from].moderators.remove(user.name)
 
