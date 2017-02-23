@@ -73,8 +73,6 @@ user = None  # Once initialized by get_info() it contains a single users info
 
 # Logging
 irc_logger = logging.getLogger(__name__)
-logging.basicConfig(format='[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): %(message)s',
-                    datefmt='%Y/%m/%d %I:%M:%S %p')
 
 # Regular Expressions-----------------------------------------------------------
 # TODO: do a re.match for each of these to test which parser to send the information to?
@@ -103,8 +101,16 @@ mod_regex = re.compile(r"^:jtv ([A-Z]+) #(\w+) ([-+])o (\w+)")
 
 # Logging-----------------------------------------------------------------------
 def enable_logging(level=logging.INFO, log_to_file=False, file_path=''):
+    main_formatter = logging.Formatter(
+        '[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): %(message)s',
+        datefmt='%Y/%m/%d %I:%M:%S %p'
+    )
+
     # To print logs to the console/terminal.
-    irc_logger.addHandler(NullHandler())
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(main_formatter)
+
+    irc_logger.addHandler(console_handler)
 
     # For saving logs to a file. Currently only saves to a single file. Considering making it save to
     # a new file based on the date, so as to not have an extremely large log file.
@@ -113,6 +119,7 @@ def enable_logging(level=logging.INFO, log_to_file=False, file_path=''):
             os.makedirs(file_path)
 
         file_handler = logging.FileHandler(file_path)
+        file_handler.setFormatter(main_formatter)
         irc_logger.addHandler(file_handler)
 
     irc_logger.setLevel(level)
