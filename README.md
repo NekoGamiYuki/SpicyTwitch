@@ -1,4 +1,4 @@
-#SpicyTwitchIRC (Soon to be known as just SpicyTwitch
+#SpicyTwitchIRC (Soon to be known as just SpicyTwitch)
 A simple Python module for communicating with twitch chat via IRC.
 
 ## Is it stable?
