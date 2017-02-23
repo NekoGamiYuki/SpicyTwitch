@@ -27,6 +27,6 @@ while True:
         # Wait 30 seconds before sending another message as we don't want to
         # spam the channel...
         time.sleep(30)
-        # chat() requites two parameters; First is the message you'd like to
+        # chat() requires two parameters; First is the message you'd like to
         # send. Second is the channel you would like to send that message to.
         twitch.chat("Hey! I'm chatting! Kappa Kappa MingLee", my_channel)

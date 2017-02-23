@@ -38,11 +38,13 @@ while True:
         else:
             print("The channel is not in slow mode.")
 
+        # Checking for subscriber-only mode
         if twitch.channels[some_twitch_channel].subscriber:
             print("The channel is in subscriber-only mode!")
         else:
             print("The channel is not in subscriber-only mode.")
 
+        # Seeing who the channel is hosting.
         if twitch.channels[some_twitch_channel].hosting:
             print("The channel is hosting {}!".format(
                 twitch.channels[some_twitch_channel].hosted_channel

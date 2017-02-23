@@ -5,6 +5,7 @@ username and messages from chat.
 TIP: If you're joining multiple channels, you can organize output by
 having the channel they chatted from alongside their message (or if you're
 making a graphical application, sending it to the corresponding window)
+
 Replace the necessary parameters (such as "username") with your own. You can
 get the channel a user chatted from by checking twitch.user.chatted_from
 """
@@ -28,11 +29,11 @@ while True:
     # If we did, run our code.
     if twitch.get_info():
         # A single user's information is stored in the user variable. This is
-        # updated every time we get a new line in chat. The API is setup to work
-        # with a single user at a time, based on the latest information we've
-        # relieved from twitch, keep this in mind. Whenever the API doesn't get
-        # a new chat line, it sets the user variable to "None", so we have to
-        # make sure to check for that.
+        # updated every time we get a new line in chat. The module is setup to
+        # work with a single user at a time, based on the latest information
+        # we've relieved from twitch, keep this in mind. Whenever the module
+        # doesn't get a new chat line, it sets the user variable to "None", so
+        # we have to make sure to check for that.
         if twitch.user:
             # The user.name is their Username. The chat message they wrote is
             # stored in user.message.

@@ -1,8 +1,8 @@
 """
 This example file will show how to setup a simple twitch bot that has 3
 commands. One command per level of user, starting with the viewer, then mod,
-and finally broadcaster. It will reply something based on whether that user
-has permission to use the command. The bot will also time out anyone that says
+and finally broadcaster. It will reply something based on what command and
+permissions the user has. The bot will also time out anyone that says
 "your bot is a scrub"  for the fun of it.
 
 WARNING: Please deploy this example in your own channel. Only place it in
@@ -24,9 +24,11 @@ while True:
     if twitch.get_info():
         if twitch.user:
             # COMMANDS! --------------------------------------------------------
-            # No need to check if the user is a mod or broadcaster, simply
-            # let them use the command since it's for everyone!
+            # user.command is set to the first "word" (split by a space) of the
+            # user's message.
             command = twitch.user.comamnd.lower()
+            # No need to check if the user is a mod or broadcaster for the first
+            # command, simply let them use the command since it's for everyone!
             if command == "!viewer":
                 # By default, send_message attaches the users name, with a
                 # leading '@' symbol. If you do not want the '@' symbol you
@@ -37,11 +39,15 @@ while True:
                 twitch.user.send_message("You're a viewer!")
             elif twitch.user.is_mod and command == "!moderator":
                 # This time we made sure to check that the user was a moderator
-                # in order to limit the command to moderators.
+                # in order to limit the command to moderators. Note, that this
+                # will not allow a streamer to use the command, as twitch does
+                # not report them as moderators when they send messages. Instead
+                # if you'd like the broadcaster to use mod commands you should
+                # make sure to check user.is_broadcaster as well.
                 twitch.user.send_message("My god, you're a moderator!")
             elif twitch.user.is_broadcaster and command == "!broadcaster":
-                # As with before, we are checking if the user is a broadcaster
-                # in order to limit the command to the channel owner.
+                # And now we are checking if the user is a broadcaster in order
+                # to limit the command to the channel owner.
                 twitch.user.send_message("Whoa, you're the channel owner!")
 
             # Automated Timeout ------------------------------------------------
@@ -52,3 +58,6 @@ while True:
                 # By default, timeout() is set to 600 seconds, but we want to
                 # simply test this, so we'll set it to 5 seconds.
                 twitch.user.timeout(5)
+
+                # You can also give a reason for the timeout, like this:
+                # twitch.user.timeout(5, "I am not a scrub!")

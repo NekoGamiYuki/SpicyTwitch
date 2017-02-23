@@ -14,9 +14,9 @@ if not twitch.connect("username", "oauth:..."):
     sys.exit(1)  # Close the program if we can't login
 
 # Joining multiple channels is incredibly simple. All you need to do is iterate
-# over a list/dict of strings that contain channel names, and run join_channe()
+# over a list/dict of strings that contain channel names, and run join_channel()
 # for each of those. I would suggest creating the list from user input, so that
-# you may join different channels depending on your needs.
+# you may join different channels depending on your needs, if possible.
 channels = ["some_channel_1", "some_channel_2", "some_channel_3"]
 for channel in channels:
     twitch.join_channel(channel)
