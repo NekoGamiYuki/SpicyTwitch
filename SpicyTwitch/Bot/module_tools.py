@@ -88,6 +88,11 @@ the rest of the command system that SpicyTwitch has.
 # TODO: Fix logging.
 # NOTE: I could just have a single bool called "logging_on" that all modules
 #       should check before they assign their handlers...
+# TODO: Fix the name system for module tools
+#       Currently it works just fine if the module does not input its own name.
+#       If a module does, then certain features have not been updated to work
+#       with name input. Also, maybe we should just tie the name to the module's
+#       actual file name. However, I feel this could lead to name collisions.
 # Imports-----------------------------------------------------------------------
 import time
 import inspect  # May ruin compatibility with anything other than CPython!
@@ -97,7 +102,7 @@ import warnings
 import platform
 import os
 import yaml  # TODO: Add to requirements file.
-import twitch
+from .. import irc
 
 
 # Global Variables--------------------------------------------------------------
@@ -223,60 +228,74 @@ def _get_storage_directory(module_name: str='') -> str:
         return ''
 
 
-def load_module_information(module_name: str) -> bool:
-    module_information = {}
-    for directory in os.listdir(primary_storage_directory):
-        if os.path.isdir(directory) and module_name.lower() in directory:
-            for file_path in os.listdir(directory):
-                with open(file_path, 'r') as file:
-                    try:
-                        key = file_path.split('_', 1)[-1]
-                        module_information[key] = yaml.safe_load_all(file)
-                    except IndexError:
-                        continue
-
-    if not module_information:
-        print(
-            "No saved data was found for the module {}.".format(module_name)
-        )
-        return False
-    else:
-        print(
-            "Loaded saved data for module {}.".format(module_name)
-        )
-
-        _MODULES[module_name.lower()] = module_information
-        return True
+def recursive_yaml_load(directory_path: str, return_dict: dict):
+    for path in os.listdir(directory_path):
+        if os.path.isdir(path):
+            recursive_yaml_load(path, return_dict)
+        else:
+            key = os.path.basename(path)
+            with open(path, 'r') as data_file:
+                return_dict[key] = yaml.safe_load_all(data_file)
 
 
-def recursive_yaml_load(directory_path: str) -> dict:
-    pass
-
-
+# TODO: Check this for bugs
+# NOTE: One bug I think might happen is if a dict appears before all the other
+#       data has been dumped. I'm unsure whether or not this recursive function
+#       will correctly save all data or if we'll miss the data that is after a
+#       dict.
 def recursive_yaml_dump(directory: str, data: dict):
     for key, value in data.items():
         if isinstance(value, dict):
-            recursive_yaml_dump(value)
+            # TODO: Make a guideline for dictionary keys having to have no
+            #       special characters. Else we're going to be in a world of
+            #       hurt when the OS begins to complain about incorrect folder
+            #       names... I don't want to modify it myself because that will
+            #       lead to confusion when loaded by in as the key will be
+            #       different from what the programmer expected.
+            new_path = os.path.join(directory, key)
+            if not os.path.isdir(new_path):
+                os.mkdir(new_path)
+
+            recursive_yaml_dump(new_path, value)
         else:
-            # TODO: Setup yaml to safely dump data
-            print("{0} : {1}".format(key, value))
+            file_name = os.path.join(directory, key)
+            with open(file_name, 'w') as key_file:
+                yaml.safe_dump_all(value, key_file)
+
+
+def load_module_information(module_name: str) -> dict:
+    module_information = {}
+    for directory in os.listdir(primary_storage_directory):
+        if os.path.isdir(directory) and module_name.lower() in directory:
+            recursive_yaml_load(directory, module_information)
+
+    return module_information
 
 
 def save_module_information(module_name: str):
+    if not module_name:
+        # TODO: Log or warn about empty module name
+        return
+
     try:
         for info_key in _MODULES[module_name.lower()].keys():
             if info_key in _IGNORE:
                 continue  # ignore the key and move onto the next one.
 
+            # NOTE: If I ever forget that this only works for dicts, I'll have
+            #       quite the day ahead of me.
+            # Creating a folder for each dict key in the main module_name
+            # dict.
+            module_storage = _MODULES[module_name.lower()]['storage']
+            key_storage = os.path.join(module_storage, info_key)
+
+            if not os.path.isdir(key_storage):
+                os.mkdir(key_storage)
+
             data = _MODULES[module_name.lower()][info_key]
 
-            file_name = "{}_{}.yaml".format(module_name.lower(), info_key)
-            module_storage = _MODULES[module_name.lower()]['storage']
-            file_path = os.path.join(module_storage, file_name)
-            with open(file_path, 'w') as info_file:
-                yaml.dump_all(data, info_file)
+            recursive_yaml_dump(key_storage, data)
 
-        print("Saved data for module {}".format(module_name))
     except KeyError:
         # TODO: Log error with module name
         pass
@@ -399,7 +418,7 @@ def check_duplicate_command_name(name: str) -> bool:
         return True
 
 
-def check_cooldown(module_name: str, name: str, user: twitch.User) -> bool:
+def check_cooldown(module_name: str, name: str, user: irc.User) -> bool:
     try:
         last_call = _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['last_call_time']
 
@@ -417,14 +436,14 @@ def check_cooldown(module_name: str, name: str, user: twitch.User) -> bool:
         return False
 
 
-def mark_cooldown(module_name: str, name: str, user: twitch.User):
+def mark_cooldown(module_name: str, name: str, user: irc.User):
     if user.is_mod or user.is_broadcaster:
         _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['last_mod_call_time'] = time.time()
     else:
         _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['last_call_time'] = time.time()
 
 
-def run_command(module_name: str, user: twitch.User):
+def run_command(module_name: str, user: irc.User):
     for regex, command in _MODULES[module_name.lower()]['commands'].items():
         # Make sure the command is enabled
         enabled = _MODULES[module_name.lower()]["commands_config"][user.chatted_from][regex]['enabled']
@@ -436,15 +455,21 @@ def run_command(module_name: str, user: twitch.User):
         # match multiple times and catching the module developers off guard.
         full_regex = r"^{}{}$".format(DEFAULT_COMMAND_PREFIX, regex.lstrip())
 
-
         # Check if regex (usually just a command name) matches.
         if re.match(full_regex, user.message):
+            if not enabled:
+                return
+
             if check_cooldown(module_name, regex, user):
                 # Run the command.
                 command(user)
 
                 # Update the cooldown information
                 mark_cooldown(module_name, regex, user)
+
+            # Exit out of the loop since we've matched the command and attempted
+            # to run it.
+            break
 
 
 # TODO: Since adding regex, there's an issue with command duplication!
@@ -653,7 +678,7 @@ def register_module(
 # Management Systems------------------------------------------------------------
 # TODO: Remember to log when a user tries to access something they
 #       don't have the level for.
-def check_user_level(level: str, user: twitch.User) -> bool:
+def check_user_level(level: str, user: irc.User) -> bool:
     """Compares twitch.User to the given (and known) userlevel
 
     The known userlevels are in the USER_LEVELS dict.
@@ -675,7 +700,7 @@ def check_user_level(level: str, user: twitch.User) -> bool:
         return False
 
 
-def moderation_check(user: twitch.User) -> bool:
+def moderation_check(user: irc.User) -> bool:
     """Checks if user has triggered any moderation filters.
 
     Goes through all moderation modules and checks the user against all filters
@@ -695,7 +720,7 @@ def moderation_check(user: twitch.User) -> bool:
 
 
 # TODO: Create run_command and run_command_manager
-def manage_response_commands(user: twitch.User):
+def manage_response_commands(user: irc.User):
     """Runs a user's command if it is in a response modules.
 
     Checks if a command is enabled and if the user's level matches the level
@@ -716,7 +741,7 @@ def manage_response_commands(user: twitch.User):
 # Consider allowing people to disable the one ways? Since they'll do things like
 # logging chat and gathering statistics,
 # which some channels will not like.
-def hand_over_to_one_ways(user: twitch.User):
+def hand_over_to_one_ways(user: irc.User):
     """Hands the user over to every one-way module.
 
     :param user: The user object that will be given to each module
