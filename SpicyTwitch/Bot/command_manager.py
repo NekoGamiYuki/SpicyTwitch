@@ -6,7 +6,7 @@ It will manage configuration of every other command module
 """
 # Imports---------------------------------------------------------------------
 import re
-import twitch
+from .. import irc
 
 # Regex-----------------------------------------------------------------------
 # TODO: I believe I need to do a check at the start of each regex.

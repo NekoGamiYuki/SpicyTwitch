@@ -9,8 +9,8 @@ managing of deaths during livestreams.
 
 # Imported Modules--------------------------------------------------------------
 import re
-import twitch
 import warnings
+from .. import irc
 from . import module_tools
 
 # TODO: Allow for switching games.
@@ -45,7 +45,7 @@ logger = module_tools.create_logger()
 
 
 # Command functions ------------------------------------------------------------
-def increment_deaths(user: twitch.User):
+def increment_deaths(user: irc.User):
 
     user_input = user.message.split(module_tools.DEFAULT_COMMAND_PREFIX, 1)[1]
     parsed_input = increment_regex.findall(user_input)
@@ -108,7 +108,7 @@ def increment_deaths(user: twitch.User):
         )
 
 
-def decrement_deaths(user: twitch.User):
+def decrement_deaths(user: irc.User):
     user_input = user.message.split(module_tools.DEFAULT_COMMAND_PREFIX, 1)[1]
     parsed_input = decrement_regex.findall(user_input)
 
@@ -180,7 +180,7 @@ def decrement_deaths(user: twitch.User):
         )
 
 
-def reset_deaths(user: twitch.User):
+def reset_deaths(user: irc.User):
     data = module_tools.get_data(user.chatted_from)
     config = module_tools.get_config(user.chatted_from)
 
@@ -210,7 +210,7 @@ def reset_deaths(user: twitch.User):
         pass
 
 
-def death_count(user: twitch.User):
+def death_count(user: irc.User):
     user_input = user.message.split(module_tools.DEFAULT_COMMAND_PREFIX, 1)[1]
     parsed_input = deathcount_regex.findall(user_input)
 
@@ -271,7 +271,7 @@ def death_count(user: twitch.User):
         )
 
 
-def add_game(user: twitch.User):
+def add_game(user: irc.User):
     game = add_game_regex.findall(user.message)[0]
 
     data = module_tools.get_data(user.chatted_from)
@@ -286,7 +286,7 @@ def add_game(user: twitch.User):
         module_tools.update_data(user.chatted_from, data)
 
 
-def set_game(user: twitch.User):
+def set_game(user: irc.User):
     game = set_game_regex.findall(user.message)[0]
 
     data = module_tools.get_data(user.chatted_from)
@@ -306,7 +306,7 @@ def set_game(user: twitch.User):
         user.send_message("Game has been changed to {}. sfhOH".format(game))
 
 
-def remove_game(user: twitch.User):
+def remove_game(user: irc.User):
     game = remove_game_regex.findall(user.message)[0]
 
     data = module_tools.get_data(user.chatted_from)
@@ -325,9 +325,15 @@ def remove_game(user: twitch.User):
 # Registering Commands----------------------------------------------------------
 module_tools.register_command("d( \d+)?", increment_deaths, "moderator")
 module_tools.register_command("dd( \d+)?", decrement_deaths, "moderator")
-module_tools.register_command("deathcount remove game (\w+|\W+)", remove_game, "moderator")
-module_tools.register_command("deathcount add game (\w+|\W+)", add_game, "moderator")
-module_tools.register_command("deathcount set game (\w+|\W+)", set_game, "moderator")
 module_tools.register_command("dc( \w+)?", death_count)
 module_tools.register_command("death_reset", reset_deaths, "broadcaster")
+module_tools.register_command("deathcount remove game (\w+|\W+)",
+                              remove_game,
+                              "moderator")
+module_tools.register_command("deathcount add game (\w+|\W+)",
+                              add_game,
+                              "moderator")
+module_tools.register_command("deathcount set game (\w+|\W+)",
+                              set_game,
+                              "moderator")
 
