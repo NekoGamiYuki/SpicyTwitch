@@ -12,27 +12,16 @@ Description:
 A set of tools to help command modules work more efficiently in combination with
 the rest of the command system that SpicyTwitch has.
 """
-# TODO: Consider managing timer systems in a better way.
-#       It feels like they could get their own set of categories?
 # TODO: Work on timers. As I'm having a few issues with the system.
 #       - Maybe I could just make a very simple system where the timer
 #         manager just runs a command ?
 # TODO: Add timer functionality
 # TODO: Add docstrings to all functions
-# TODO: BIG ISSUE, currently this system only works on a single channel!
-#       I need to make it a multi-channel system! It needs to have configuration
-#       on a per-channel basis.
 # TODO: Read up on properly using python, some of the things I've done feel like
 #       there may be better ways to do them.
-# NOTE: It may be better to just use a database at this point. But for now this
-#       can work.
 # NOTE: I think if I use function decorators I can do some fun stuff, like maybe
 #       that would be an easier thing to do than having users register their
 #       commands?
-# TODO: Check for cooldowns.
-#       Also, I just should put something like a 5 second cooldown for mods(?).
-# TODO: Find a way to get the module __name__ instead of asking for it.
-#       This way, functions like log_info won't need to request the module name.
 # NOTE: When I learn more, I think I might be able to create decorators for each
 #       command type (response/one-way/timer) and also make it so that if a
 #       module isn't registered, it'll be auto-registered on command
@@ -44,7 +33,8 @@ the rest of the command system that SpicyTwitch has.
 # TODO: Also add register_timer() for Timer modules to use.
 # TODO: Also add register_oneway() for One-Way modules to use.
 # TODO: Add ability to make users "managers" for a channel.
-# TODO: Log exceptions be converting them to str().
+#       I should just turn this idea into an "Administration" module
+# TODO: Log certain exceptions by converting them to str().
 # TODO: Going to have to create a check that the basic keys are loaded correctly
 #       Specifically, things like 'data', which are critical for use in many
 #       commands. Since these are loaded first, if available, there's a chance
@@ -83,16 +73,12 @@ the rest of the command system that SpicyTwitch has.
 #       Thinking: sfhHM
 #       Scared: WutFace
 #       Perplexed: NotLikeThis
-# NOTE: As I thought, logging with these functions prints the module as
-#       module_tools instead of the respective module.
-# TODO: Fix logging.
-# NOTE: I could just have a single bool called "logging_on" that all modules
-#       should check before they assign their handlers...
 # TODO: Fix the name system for module tools
 #       Currently it works just fine if the module does not input its own name.
 #       If a module does, then certain features have not been updated to work
 #       with name input. Also, maybe we should just tie the name to the module's
 #       actual file name. However, I feel this could lead to name collisions.
+# TODO: Create a logger for this module and log everything!
 # Imports-----------------------------------------------------------------------
 import time
 import inspect  # May ruin compatibility with anything other than CPython!
@@ -128,6 +114,16 @@ logging_level = logging.INFO
 log_format = '[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): ' \
              '%(message)s'
 date_format = '%Y/%m/%d %I:%M:%S %p'
+log_formatter = logging.Formatter(log_format, datefmt=date_format)
+
+# Setting up terminal/console output for loggers
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(log_formatter)
+
+# Setting up the logger for this module
+_logger = logging.getLogger(__name__)
+_logger.addHandler(console_handler)
+
 
 # Modules and Systems
 # Apparently no performance issues with having everything in one dictionary!
@@ -142,33 +138,6 @@ _IGNORE = ["storage", "category", "commands"]
 SAVE_COOLDOWN = 10
 LAST_SAVE = 0
 
-
-# Inspection--------------------------------------------------------------------
-# TODO: Implement these functions!
-def get_module_name(outer_module: bool=True) -> str:
-    stack = inspect.stack()
-
-    if outer_module:
-        # With an index of two, we'll get the name of the module that called
-        # this function, outside of this module.
-        stack_index = 2
-    else:
-        # With an index of one, we'll get the latest module name, which in this
-        # module will be module_tools.
-        stack_index = 1
-
-    return inspect.getmodulename(stack[stack_index][1])
-
-
-def get_function_name(outer_module: bool=True) -> str:
-    stack = inspect.stack()
-
-    if outer_module:
-        stack_index = 2
-    else:
-        stack_index = 1
-
-    return stack[stack_index][3]
 
 # Storage Setup-----------------------------------------------------------------
 # This sets up the storage directory based on the OS it is being run on.
@@ -202,6 +171,12 @@ if not os.path.exists(primary_storage_directory):
 log_directory = os.path.join(primary_storage_directory, "logs")
 if log_to_file and not os.path.exists(log_directory):
     os.makedirs(log_directory)
+
+    # Turning on logging to file for the module_tools logger
+    _file_path = os.path.join(log_directory, "module_tools")
+    _file_handler = logging.FileHandler(_file_path)
+    _file_handler.setFormatter(log_formatter)
+    _logger.addHandler(_file_handler)
 
 
 # TODO: This is rather unnecessary now, I should remove it.
@@ -311,6 +286,34 @@ def save_all():
     LAST_SAVE = time.time()
 
 
+# Inspection--------------------------------------------------------------------
+# TODO: Implement these functions!
+def get_module_name(outer_module: bool=True) -> str:
+    stack = inspect.stack()
+
+    if outer_module:
+        # With an index of two, we'll get the name of the module that called
+        # this function, outside of this module.
+        stack_index = 2
+    else:
+        # With an index of one, we'll get the latest module name, which in this
+        # module will be module_tools.
+        stack_index = 1
+
+    return inspect.getmodulename(stack[stack_index][1])
+
+
+def get_function_name(outer_module: bool=True) -> str:
+    stack = inspect.stack()
+
+    if outer_module:
+        stack_index = 2
+    else:
+        stack_index = 1
+
+    return stack[stack_index][3]
+
+
 # Logging System----------------------------------------------------------------
 def create_logger(python_module_name: str='') -> logging.Logger:
     """Creates a logger with the module's __name__ and adds it to a local dict.
@@ -329,20 +332,13 @@ def create_logger(python_module_name: str='') -> logging.Logger:
 
     # Creating the logger
     module_logger = logging.getLogger(python_module_name)
-
-    # Setting up formatter
-    main_formatter = logging.Formatter(log_format, datefmt=date_format)
-
-    # Setting up terminal/console output
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(main_formatter)
     module_logger.addHandler(console_handler)
 
     # Setting up file output
     if log_to_file:
         file_path = os.path.join(log_directory, python_module_name)
         file_handler = logging.FileHandler(file_path)
-        file_handler.setFormatter(main_formatter)
+        file_handler.setFormatter(log_formatter)
         module_logger.addHandler(file_handler)
 
     module_logger.setLevel(logging_level)
@@ -623,7 +619,6 @@ def register_module(
     """
     if not module_name:
         module_name = get_module_name()
-
 
     if not category:
         raise RuntimeError("Module {} attempted to register with an empty "
