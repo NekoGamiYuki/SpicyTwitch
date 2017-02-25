@@ -144,3 +144,7 @@ $RECYCLE.BIN/
 # Testing
 Logs/
 test.py
+
+# SpicyB0t specific stuff
+spicybot.py
+spicybot_config
