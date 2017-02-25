@@ -78,13 +78,20 @@ import time
 import logging
 import os
 from logging import NullHandler
-import twitch
+from .. import irc
 from . import module_tools
 from .module_tools import DEFAULT_COMMAND_PREFIX
 
 
+# Startup setup-----------------------------------------------------------------
+def startup_setup():
+
+    # Load in currently joined channels
+    for channel in irc.channels.keys():
+        module_tools.update_modules_for_new_channel(channel)
+
 # Command Management -----------------------------------------------------------
-def manage_user_input(user: twitch.User):
+def manage_user_input(user: irc.User):
 
     module_tools.update_modules_for_new_channel(user.chatted_from)
 
