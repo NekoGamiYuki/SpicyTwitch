@@ -6,10 +6,10 @@ Replace the necessary parameters (such as "username") with your own.
 """
 
 import sys
-import twitch
+from SpicyTwitch import irc
 
 # Connect to twitch, make sure we've logged in.
-if not twitch.connect("username", "oauth:..."):
+if not irc.connect("username", "oauth:..."):
     print("Unable to login!")
     sys.exit(1)  # Close the program if we can't login
 
@@ -19,10 +19,10 @@ if not twitch.connect("username", "oauth:..."):
 # you may join different channels depending on your needs, if possible.
 channels = ["some_channel_1", "some_channel_2", "some_channel_3"]
 for channel in channels:
-    twitch.join_channel(channel)
+    irc.join_channel(channel)
 # You can see what channel's you've joined by looking at twitch.channels.keys()
 
 while True:
-    if twitch.get_info():
+    if irc.get_info():
         # Do some stuff!
         pass  # Remember to remove this if you use the example file!
