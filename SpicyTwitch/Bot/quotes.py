@@ -7,32 +7,41 @@ A way to create and manage quotes. Specifically made for quick creation of
 quotes during livestreams.
 """
 
-# TODO: New goal is to make every command-function a "worker" that manages the twitch user.
-
-# TODO: Create an update function that goes through the quote file and updates quotes using the previous Broadcaster
-#       nickname to the new nickname. This can be done simply by comparing each line to the previous nickname and
+# TODO: New goal is to make every command-function a "worker" that manages the
+#       twitch user.
+# TODO: Create an update function that goes through the quote file and updates
+#       quotes using the previous Broadcaster nickname to the new nickname. This
+#       can be done simply by comparing each line to the previous nickname and
 #       changing all that match.
-# TODO: After completing the necessary parts of the quote functionality, read up "Fluent Python"
+# TODO: After completing the necessary parts of the quote functionality, read up
+#       "Fluent Python"
 # TODO: Add documentation to all functions.
 # TODO: make it so that boolean functions return strings instead, so that chat
 #       knows how much I fucked up with the bot.
-# TODO: Implement configuration. Things like setting the broadascter nickname, cooldowns, etc.
-# TODO: Consider changing certain function returns to int values that represent specific issues. (Maybe not)
-# TODO: Use Emote class feature to find out whether emotes are at the start or end of a quote. Add appropriate spacing
-#       to allow the emote to show.
-# TODO: Maybe make a statistics value that shows how many times a quote is used (excluding random appears?).
-# TODO: Consider making a help function, which states how to do some things... maybe...
+# TODO: Implement configuration. Things like setting the broadascter nickname,
+#       cooldowns, etc.
+# TODO: Consider changing certain function returns to int values that represent
+#       specific issues. (Maybe not)
+# TODO: Use Emote class feature to find out whether emotes are at the start or
+#       end of a quote. Add appropriate spacing to allow the emote to show.
+# TODO: Maybe make a statistics value that shows how many times a quote is used
+#       (excluding random appears?).
+# TODO: Consider making a help function, which states how to do some things...
+#       maybe...
 # TODO: Log who creates/deletes/edits a quote and maybe the changes they made?
-# TODO: ^ If done, consider creating a "revert/undo" function to revert a quote to its previous version. Also log that.
-#       Have the revert function work both ways. If used on a reverted quote it'll return to the latest edit.
-# TODO: Create a Quote class for more readability in code and easier management. Also would allow Quotes to be managed
-#       by other command modules.
+# TODO: ^ If done, consider creating a "revert/undo" function to revert a quote
+#       to its previous version. Also log that. Have the revert function work
+#       both ways. If used on a reverted quote
+#       it'll return to the latest edit.
+# TODO: Create a Quote class for more readability in code and easier management.
+#       Also would allow Quotes to be managed by other command modules.
 # TODO: Make broadcaster_nickname changes apply to the quotes file
-# TODO: Section off specific parts of the bot, such as all the parts that have to do with reading, and all the parts
-#       that have to do with writing. Give each of those a cooldown if necessary, so as to not have to use some global
-#       cooldown. Maybe just give each function a cooldown.
-# TODO: When fixing up the entire set of code, consider implementing a system to stop quotes for being repeated for some
-#       time.
+# TODO: Section off specific parts of the bot, such as all the parts that have
+#       to do with reading, and all the parts that have to do with writing.
+#       Give each of those a cooldown if necessary, so as to not have to use
+#       some global cooldown. Maybe just give each function a cooldown.
+# TODO: When fixing up the entire set of code, consider implementing a system
+#       to stop quotes for being repeated for some time.
 # TODO: With new command system, seperate !quotes and !quote cooldowns
 
 
@@ -45,10 +54,11 @@ quotes during livestreams.
 
 # Imported Modules--------------------------------------------------------------
 import re
+import os
 import datetime
 from random import randint
 from difflib import SequenceMatcher
-import twitch
+from .. import irc
 from . import module_tools
 
 # Global Variables--------------------------------------------------------------
@@ -76,14 +86,32 @@ quote_edit_regex = re.compile(r"quote edit (\d+) (-\w+=\w+)? (\w+)")
 quote_add_regex = re.compile(r"quote add (-\w+=\w+)? (\w+)")
 quote_delete_regex = re.compile(r"quote delete (\d+)")
 # Module Registration-----------------------------------------------------------
-MODULE_NAME = "Quotes"
-module_tools.register_module(MODULE_NAME, "response", default_data, default_config)
-module_tools.register_logger(MODULE_NAME, __name__)
+module_tools.register_module(default_data, default_config)
+module_tools.create_logger()
 
 
 # Transferring old quotes to new system
-def transfer_quotes():
-    pass
+def transfer_quotes(directory: str, channel):
+    if not directory:
+        raise RuntimeError(
+            "transfer_quotes was called but given an empty directory as input."
+        )
+
+    quotes = []
+    with open(os.path.join(directory, 'quotes')) as quotes_file:
+        for i, line in enumerate(quotes_file.readline()):
+            if i > 2:
+                information = line.rsplit('|', 1)
+                quote_text = information[0]
+                quoted_person = information[1]
+                quote_date = information[-1]
+
+                quotes.append([quote_text, quoted_person, quote_date])
+
+    data = module_tools.get_data(channel)
+    data['quotes'] = quotes
+    module_tools.update_data(channel, data)
+
 
 # TODO: Implement similarity tests.
 # NOTE: I can see this maybe getting annoying so it should be possible to toggle.
@@ -106,10 +134,11 @@ def _quote_similarity(channel_name: str, quote_text: str) -> str:
 
 # TODO: Make counter state how many are deleted
 # NOTE: Maybe make a function that runs when "!quotes deleted" is called?
-# NOTE: Maybe have separate posts? One for cases where quotes have been deleted, another for when none are deleted?
-def quote_count(user: twitch.User):
+# NOTE: Maybe have separate posts? One for cases where quotes have been deleted,
+#       another for when none are deleted?
+def quote_count(user: irc.User):
 
-    quotes = module_tools.get_data(MODULE_NAME, user.chatted_from)['quotes']
+    quotes = module_tools.get_data(user.chatted_from)['quotes']
 
     if quotes:
         # Getting number of quotes
@@ -124,49 +153,50 @@ def quote_count(user: twitch.User):
         print("Deleted Count: {}".format(deleted_count))
         if quote_count - deleted_count == 0:
             if quote_count > 1:
-                twitch.chat("WutFace There are only deleted quotes, "
+                irc.chat("WutFace There are only deleted quotes, "
                             "{} of them! WutFace".format(deleted_count),
                             user.chatted_from)
             elif quote_count == 1:
-                twitch.chat("WutFace There is only one quote and it was "
+                irc.chat("WutFace There is only one quote and it was "
                             "deleted! WutFace", user.chatted_from)
 
         if quote_count > 150:
-            twitch.chat(" NotLikeThis There are {} quotes and {} "
+            irc.chat(" NotLikeThis There are {} quotes and {} "
                         "are deleted! Will they ever stop!? "
                         "NotLikeThis".format(quote_count, deleted_count),
                         user.chatted_from)
         elif quote_count > 100:
-            twitch.chat("\m/ SwiftRage \m/ {} quotes, {} were "
+            irc.chat("\m/ SwiftRage \m/ {} quotes, {} were "
                         "burned at the stake! FUCK YEAH! "
                         "\m/ SwiftRage \m/".format(quote_count, deleted_count),
                         user.chatted_from)
         elif quote_count > 50:
-            twitch.chat("PogChamp there are {} quotes and {}"
+            irc.chat("PogChamp there are {} quotes and {}"
                         " of those were deleted! "
                         "PogChamp".format(quote_count, deleted_count),
                         user.chatted_from)
         elif quote_count == 1:
-            twitch.chat("FeelsGoodMan there is 1 quote. FeelsGoodMan",
+            irc.chat("FeelsGoodMan there is 1 quote. FeelsGoodMan",
                          user.chatted_from)
         else:
             if deleted_count == 1:
                 deleted_message = "1 was deleted!"
             else:
                 deleted_message = "{} were deleted".format(deleted_count)
-            twitch.chat("FeelsGoodMan there are {} quotes, of which {} "
-                        "FeelsGoodMan".format(quote_count, deleted_message),
-                        user.chatted_from)
+            irc.chat(
+                "FeelsGoodMan there are {} quotes, of which {} "
+                "FeelsGoodMan".format(quote_count, deleted_message),
+                user.chatted_from)
     else:
-        twitch.chat("FeelsBadMan there are no quotes. "
+        irc.chat("FeelsBadMan there are no quotes. "
                     "FeelsGoodMan time to make some quotes!",
                     user.chatted_from)
 
 
-def quote_read(user: twitch.User):
+def quote_read(user: irc.User):
 
     parsed_input = quote_read_regex.findall(user.message)
-    quotes = module_tools.get_data(MODULE_NAME, user.chatted_from)['quotes']
+    quotes = module_tools.get_data(user.chatted_from)['quotes']
 
     if len(parsed_input) == 1:
         quote_number = randint(0, len(quotes))
@@ -185,7 +215,7 @@ def quote_read(user: twitch.User):
             quote_text = "\" {} \"".format(quotes[quote_number][0])
             broadcaster_name = quotes[quote_number][1].strip()
 
-            config = module_tools.get_config(MODULE_NAME, user.chatted_from)
+            config = module_tools.get_config(user.chatted_from)
 
             # Use the new set nickname for the quote
             if config["broadcaster_nickname"] != default_config["broadcaster_nickname"]:
@@ -216,7 +246,7 @@ def quote_read(user: twitch.User):
                         quote_text, broadcaster_name, quote_date, quote_index
                     )
 
-                    twitch.chat(quote, user.chatted_from)
+                    irc.chat(quote, user.chatted_from)
                 else:
                     user.send_message("Quote #{} was deleted on {}. "
                                       "sfhSAD".format(quote_number + 1, quote_date))
@@ -230,11 +260,11 @@ def quote_read(user: twitch.User):
                     quote_text, broadcaster_name, quote_date, quote_index
                 )
 
-                twitch.chat(quote, user.chatted_from)
+                irc.chat(quote, user.chatted_from)
         except IndexError:
-            twitch.chat("Quote #{} does not exist. "
-                        "FeelsBadMan".format(quote_number + 1),
-                        user.chatted_from)
+            irc.chat("Quote #{} does not exist. "
+                     "FeelsBadMan".format(quote_number + 1),
+                     user.chatted_from)
 
     # NOTE: I think the regex will stop this from ever happening, maybe I'll
     #       add a negative sign, allowing it to get negative numbers,
@@ -244,14 +274,15 @@ def quote_read(user: twitch.User):
                           "before quotes were even a thing. Shame...")
 
 
-# TODO: I think my use of the "too_large" variable makes it so that the original quote is not re-written to the file.
-#       This causes it to be deleted, which is not what the _quote_edit() function should be doing...
-def quote_edit(user: twitch.User):
+# TODO: I think my use of the "too_large" variable makes it so that the original
+#       quote is not re-written to the file. This causes it to be deleted, which
+#       is not what the _quote_edit() function should be doing...
+def quote_edit(user: irc.User):
     parsed_input = quote_edit_regex.findall(user.message)
 
     broadcaster_nickname = user.chatted_from
     if not len(parsed_input) >= 3:
-        config = module_tools.get_config(MODULE_NAME, user.chatted_from)
+        config = module_tools.get_config(user.chatted_from)
         set_nickname = config['broadcaster_nickname']
 
         if not set_nickname == default_config['broadcaster_nickname']:
@@ -268,7 +299,7 @@ def quote_edit(user: twitch.User):
         return  # NOTE: Maybe log something?
 
     # Get our module data from module_tools
-    data = module_tools.get_data(MODULE_NAME, user.chatted_from)
+    data = module_tools.get_data(user.chatted_from)
 
     quoted_person = data['quotes'][index][1]
     date = data['quotes'][index][-1]
@@ -301,7 +332,7 @@ def quote_edit(user: twitch.User):
         data['quotes'][index][-1] = date
 
         # Update module_tools to hold our newest set of data.
-        module_tools.update_data(MODULE_NAME, user.chatted_from, data)
+        module_tools.update_data(user.chatted_from, data)
 
         if was_deleted:
             message = "Previously deleted quote has been reborn as a new " \
@@ -315,7 +346,7 @@ def quote_edit(user: twitch.User):
 
 # TODO: WHen new system is implemented. Use twitch.user.emotes[] and find the start and end of each emote. If one
 #       starts at 0 or ends at the very last character of the quote, add a space to the left or right respectively.
-def quote_add(user: twitch.User):
+def quote_add(user: irc.User):
 
     parsed_input = quote_add_regex.findall(user.message)
 
@@ -337,7 +368,7 @@ def quote_add(user: twitch.User):
                 pass
 
     else:  # If not, check if the broadcaster_nickname option has been set
-        config = module_tools.get_config(MODULE_NAME, user.chatted_from)
+        config = module_tools.get_config(user.chatted_from)
         set_nickname = config['broadcaster_nickname']
 
         if not set_nickname == default_config['broadcaster_nickname']:
@@ -350,7 +381,7 @@ def quote_add(user: twitch.User):
         return
 
     # Get the data stored by module_tools
-    data = module_tools.get_data(MODULE_NAME, user.chatted_from)
+    data = module_tools.get_data(user.chatted_from)
 
     # Get our quotes from the stored data.
     quotes = data['quotes']
@@ -367,12 +398,12 @@ def quote_add(user: twitch.User):
 
     # Update data that module_tools stores.
     data['quotes'] = quotes
-    module_tools.update_data(MODULE_NAME, user.chatted_from, data)
+    module_tools.update_data(user.chatted_from, data)
 
     user.send_message("Quote #{} has been created! sfhWOW".format(len(quotes)))
 
 
-def quote_delete(user: twitch.User):
+def quote_delete(user: irc.User):
     parsed_input = quote_delete_regex.findall(user.message)
 
     if not parsed_input:
@@ -381,7 +412,7 @@ def quote_delete(user: twitch.User):
     else:
         index = int(parsed_input[0]) - 1
 
-        data = module_tools.get_data(MODULE_NAME, user.chatted_from)
+        data = module_tools.get_data(user.chatted_from)
         quotes = data['quotes']
 
         try:
@@ -398,8 +429,8 @@ def quote_delete(user: twitch.User):
                               "sfhSHRUG".format(index + 1))
 
 
-module_tools.register_command(MODULE_NAME, r'quotes', quote_count)
-module_tools.register_command(MODULE_NAME, r'quote( \d+)?', quote_read)
-module_tools.register_command(MODULE_NAME, r'quote add \w+', quote_add, "moderator")
-module_tools.register_command(MODULE_NAME, r'quote edit', quote_edit, "moderator")
-module_tools.register_command(MODULE_NAME, r'quote delete \d+', quote_delete, "moderator")
+module_tools.register_command(r'quotes', quote_count)
+module_tools.register_command(r'quote( \d+)?', quote_read)
+module_tools.register_command(r'quote add \w+', quote_add, "moderator")
+module_tools.register_command(r'quote edit', quote_edit, "moderator")
+module_tools.register_command(r'quote delete \d+', quote_delete, "moderator")
