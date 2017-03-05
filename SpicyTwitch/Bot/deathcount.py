@@ -323,8 +323,10 @@ def remove_game(user: irc.User):
 
 
 # Registering Commands----------------------------------------------------------
-module_tools.register_command("d( \d+)?", increment_deaths, "moderator")
-module_tools.register_command("dd( \d+)?", decrement_deaths, "moderator")
+module_tools.register_command("d( \d+)?", increment_deaths, "moderator",
+                              mod_cooldown=15)
+module_tools.register_command("dd( \d+)?", decrement_deaths, "moderator",
+                              mod_cooldown=15)
 module_tools.register_command("dc( \w+)?", death_count)
 module_tools.register_command("death_reset", reset_deaths, "broadcaster")
 module_tools.register_command("deathcount remove game (\w+|\W+)",
