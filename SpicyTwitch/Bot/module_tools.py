@@ -79,6 +79,11 @@ the rest of the command system that SpicyTwitch has.
 #       with name input. Also, maybe we should just tie the name to the module's
 #       actual file name. However, I feel this could lead to name collisions.
 # TODO: Create a logger for this module and log everything!
+# TODO: Optimize things...
+#       As I'm creating the sacrifice module, I've noticed that I might have
+#       some performance issues with modules that have to repeatedly request
+#       and update their data. If this is an issue, I should consider placing
+#       the data dictionary outside of the modules dictionary.
 # Imports-----------------------------------------------------------------------
 import time
 import inspect  # May ruin compatibility with anything other than CPython!
@@ -109,6 +114,7 @@ DEFAULT_COMMAND_CONFIG = {
 }
 
 # Logging
+log_is_on = False
 log_to_file = True
 logging_level = logging.INFO
 log_format = '[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): ' \
@@ -117,7 +123,12 @@ date_format = '%Y/%m/%d %I:%M:%S %p'
 log_formatter = logging.Formatter(log_format, datefmt=date_format)
 
 # Setting up terminal/console output for loggers
-console_handler = logging.StreamHandler()
+if log_is_on:
+    console_handler = logging.StreamHandler()
+else:
+    # TODO: Find a way to make it so that the handler doesn't print at all.
+    console_handler = logging.NullHandler()
+
 console_handler.setFormatter(log_formatter)
 
 # Setting up the logger for this module
@@ -205,6 +216,7 @@ def _get_storage_directory(module_name: str='') -> str:
 
 def recursive_yaml_load(directory_path: str, return_dict: dict):
     for path in os.listdir(directory_path):
+        print("Return Dict: {}\n---".format(dict))
         if os.path.isdir(path):
             recursive_yaml_load(path, return_dict)
         else:
@@ -220,6 +232,7 @@ def recursive_yaml_load(directory_path: str, return_dict: dict):
 #       dict.
 def recursive_yaml_dump(directory: str, data: dict):
     for key, value in data.items():
+        print("Key: {}\nValue: {}\n---".format(key, value))
         if isinstance(value, dict):
             # TODO: Make a guideline for dictionary keys having to have no
             #       special characters. Else we're going to be in a world of
@@ -401,7 +414,7 @@ def update_data(channel: str, data: dict, module_name: str=''):
 
 
 # Command System----------------------------------------------------------------
-def check_duplicate_command_name(name: str) -> bool:
+def check_duplicate_command_name(name: str, channel: str='') -> bool:
     """Checks if a command is already registered by a module
 
     :param name: Name of the command
@@ -410,11 +423,17 @@ def check_duplicate_command_name(name: str) -> bool:
     for module in _MODULES.keys():
         if name.lower() in _MODULES[module]["commands"].keys():
             return False
-    else:  # If we reach the end of the loop and nothing happens, return True.
-        return True
+
+    if channel:
+        if name in _MODULES["command_manager"]["custom_commands"][channel].keys():
+            return False
+
+    return True
 
 
-def check_cooldown(module_name: str, name: str, user: irc.User) -> bool:
+def check_cooldown(
+        module_name: str, name: str, user: irc.User, channel: str
+) -> bool:
     try:
         last_call = _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['last_call_time']
 
@@ -440,9 +459,37 @@ def mark_cooldown(module_name: str, name: str, user: irc.User):
 
 
 def run_command(module_name: str, user: irc.User):
+
+    # Run a local command (As in, local to the channel)
+    custom_commands = _MODULES[module_name.lower()]['custom_commands']
+    if custom_commands:
+        for regex, command in custom_commands.items():
+            enabled = _MODULES[module_name.lower()]["commands_config"][user.chatted_from][regex]['enabled']
+
+            if not enabled:
+                return
+
+            full_regex = r"^{}{}$".format(DEFAULT_COMMAND_PREFIX, regex.lstrip())
+
+            if re.match(full_regex, user.message):
+                if check_cooldown(module_name, regex, user):
+                    # Run the command.
+                    command(user)
+
+                    # Update the cooldown information
+                    mark_cooldown(module_name, regex, user)
+
+                # Exit out of the loop since we've matched the command and attempted
+                # to run it.
+                break
+
+    # Run a globalk command (As in, other channels can run the command as well)
     for regex, command in _MODULES[module_name.lower()]['commands'].items():
         # Make sure the command is enabled
         enabled = _MODULES[module_name.lower()]["commands_config"][user.chatted_from][regex]['enabled']
+
+        if not enabled:
+            return
 
         # Only launches commands if they match exactly with the regex, if
         # the command starts later or ends with extra information it doesn't
@@ -453,9 +500,6 @@ def run_command(module_name: str, user: irc.User):
 
         # Check if regex (usually just a command name) matches.
         if re.match(full_regex, user.message):
-            if not enabled:
-                return
-
             if check_cooldown(module_name, regex, user):
                 # Run the command.
                 command(user)
@@ -466,6 +510,16 @@ def run_command(module_name: str, user: irc.User):
             # Exit out of the loop since we've matched the command and attempted
             # to run it.
             break
+
+# TODO: Make sure this works!
+def unregister_command(name: str) -> bool:
+    module = get_module_name()
+    if name in _MODULES[module]['commands'].keys() :
+        del _MODULES[module]['commands_config'][name]
+        del _MODULES[module]['commands'][name]
+        return True
+    else:
+        return False
 
 
 # TODO: Since adding regex, there's an issue with command duplication!
@@ -485,6 +539,22 @@ def run_command(module_name: str, user: irc.User):
 #
 #           It would be something like this:
 #           re.split(r'[<characters used in regex>]')
+# NOTE: Maybe I can have an application give test input to see if their code
+#       launches more than one command!
+#
+#       If I had the skill, I could probably create a complex system that could
+#       fill in the regex areas, but that's very complicated (or seems that way)
+#       and I'm unsure if I could ever make something like that. It's easier to
+#       just request that a module give some test input, maybe when they
+#       register their command they can give (possibly optional) input string.
+#
+#       We would just have one function go through each command available and
+#       try to match the string. If it matches, it adds the regex and module
+#       from which it matched to a dict. Then it moves on until it no longer
+#       has any commands/modules to try and match against. If the dict is
+#       larger than 1, it has failed and there is a duplicate command.
+# TODO: The commands config stuff is broken and not set to work with multiple
+#       channels! I need to fix this.
 def register_command(
         name: str,
         function: callable,
@@ -492,6 +562,7 @@ def register_command(
         cooldown=DEFAULT_COOLDOWN,
         mod_cooldown=DEFAULT_MOD_COOLDOWN,
         enabled=True,
+        channel=False,
         module_name: str=''
 ):
     """Registers a command so that it may be used on Twitch.
@@ -542,9 +613,20 @@ def register_command(
     # Checking if command name is taken locally
     if not check_duplicate_command_name(name.lower()):
         raise RuntimeError("Command name '{}' is already taken.".format(name))
+    elif channel:
+        _MODULES[module_name.lower()]['custom_commands_config'][channel][name.lower()] = {}
+        _MODULES[module_name.lower()]["custom_commands_config"][channel][name.lower()] = {
+            "enabled": enabled,
+            "userlevel": user_level,
+            "last_call_time": 0,
+            "mod_cooldown": mod_cooldown,
+            "cooldown": cooldown
+        }
+
+        _MODULES[module_name.lower()]["custom_commands"][channel][name.lower()] = function
     else:
         _MODULES[module_name.lower()]['commands_config'][name.lower()] = {}
-        _MODULES[module_name.lower()]["commands_config"][name.lower()]["default"] = {
+        _MODULES[module_name.lower()]["commands_config"][name.lower()] = {
             "enabled": enabled,
             "userlevel": user_level,
             "last_call_time": 0,
@@ -660,12 +742,18 @@ def register_module(
             default_data = {}
 
         # Loading in basic Module dictionary layout.
+        # NOTE: I added "custom_commands" as a temporary fix for general
+        #       commands made by the command_manager. However... I feel as if
+        #       I'll need to rework this, but chances are that won't happen and
+        #       this temporary fix will turn out permanent. - (2-28-2017)
         _MODULES[module_name.lower()] = {
             "category": category.lower(),
             "storage": module_storage,
             "data": {"DEFAULT_DATA_INITIALIZATION": default_data},
             "config": {"DEFAULT_CONFIGURATION": default_config},
             "commands_config": {},
+            "custom_commands_config": {},
+            "custom_commands": {},
             "commands": {}
         }
 
