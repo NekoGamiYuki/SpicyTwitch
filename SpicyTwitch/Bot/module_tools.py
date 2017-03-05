@@ -460,6 +460,12 @@ def mark_cooldown(module_name: str, name: str, user: irc.User):
 
 def run_command(module_name: str, user: irc.User):
 
+    # TODO: Consider doing a "try/except" block instead of looping through the
+    #       commands. I just need to make the command manager not allow regex,
+    #       which I think the '\w' command already does anyways. In doing so, I
+    #       should be able to just attempt to run the command instantly rather
+    #       than going through the entire dictionary.
+
     # Run a local command (As in, local to the channel)
     custom_commands = _MODULES[module_name.lower()]['custom_commands']
     if custom_commands:
