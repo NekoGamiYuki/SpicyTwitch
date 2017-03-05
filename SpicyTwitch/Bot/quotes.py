@@ -85,6 +85,7 @@ quote_read_regex = re.compile(r"quote( \d+)?")
 quote_edit_regex = re.compile(r"quote edit (\d+) (-\w+=\w+)? (\w+)")
 quote_add_regex = re.compile(r"quote add (-\w+=\w+)? (\w+)")
 quote_delete_regex = re.compile(r"quote delete (\d+)")
+
 # Module Registration-----------------------------------------------------------
 module_tools.register_module(default_data, default_config)
 module_tools.create_logger()
@@ -113,6 +114,7 @@ def transfer_quotes(directory: str, channel):
     module_tools.update_data(channel, data)
 
 
+# Similarity tests--------------------------------------------------------------
 # TODO: Implement similarity tests.
 # NOTE: I can see this maybe getting annoying so it should be possible to toggle.
 # NOTE: We could respond with something like:
@@ -132,6 +134,7 @@ def _quote_similarity(channel_name: str, quote_text: str) -> str:
 """
 
 
+# Command functions-------------------------------------------------------------
 # TODO: Make counter state how many are deleted
 # NOTE: Maybe make a function that runs when "!quotes deleted" is called?
 # NOTE: Maybe have separate posts? One for cases where quotes have been deleted,
