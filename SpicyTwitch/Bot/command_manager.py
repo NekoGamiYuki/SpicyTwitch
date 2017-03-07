@@ -31,9 +31,10 @@ config_regex = re.compile(r"config edit (\w+) (\w+) (\w+)")
 
 # Module Registration-----------------------------------------------------------
 module_tools.register_module(default_data)
+logger = module_tools.create_logger()
 
 
-# Response Function-------------------------------------------------------------
+# Command Creation--------------------------------------------------------------
 def save_command(
         channel: str, name: str, response: str, user_level: str, cooldown: int
 ):
@@ -92,6 +93,8 @@ def load_all():
 
     for channel in irc.channels.keys():
         if channel not in loaded_channels:
+            logger.info("Loading commands for channel '{}'.".format(channel))
+
             data = module_tools.get_data(channel)
             for command_name, command_data in data['commands'].items():
                 create_command(
@@ -101,6 +104,8 @@ def load_all():
                     command_data["user_level"],
                     command_data["cooldown"]
                 )
+
+            loaded_channels.append(channel)
 
 
 # Command Functions-------------------------------------------------------------
@@ -117,7 +122,6 @@ def commands_add(user: irc.User):
 
             options[option[0].split('-', 1)[1].lower()] = option_value[1]
 
-
     command_name = parsed_input[-2]
     command_response = parsed_input[-1]
 
@@ -129,5 +133,12 @@ def commands_add(user: irc.User):
         else:
             level = 'everyone'
 
-        create_command(user.chatted_from, command_name, command_response, level)
+        if "cooldown" in options.keys():
+            cooldown = options['cooldown']
+        else:
+            cooldown = 30
+
+        create_command(
+            user.chatted_from, command_name, command_response, level, cooldown
+        )
 
