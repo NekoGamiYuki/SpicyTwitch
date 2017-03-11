@@ -7,8 +7,6 @@ A way to create and manage quotes. Specifically made for quick creation of
 quotes during livestreams.
 """
 
-# TODO: New goal is to make every command-function a "worker" that manages the
-#       twitch user.
 # TODO: Create an update function that goes through the quote file and updates
 #       quotes using the previous Broadcaster nickname to the new nickname. This
 #       can be done simply by comparing each line to the previous nickname and
@@ -16,41 +14,18 @@ quotes during livestreams.
 # TODO: After completing the necessary parts of the quote functionality, read up
 #       "Fluent Python"
 # TODO: Add documentation to all functions.
-# TODO: make it so that boolean functions return strings instead, so that chat
-#       knows how much I fucked up with the bot.
-# TODO: Implement configuration. Things like setting the broadascter nickname,
-#       cooldowns, etc.
-# TODO: Consider changing certain function returns to int values that represent
-#       specific issues. (Maybe not)
 # TODO: Use Emote class feature to find out whether emotes are at the start or
 #       end of a quote. Add appropriate spacing to allow the emote to show.
 # TODO: Maybe make a statistics value that shows how many times a quote is used
 #       (excluding random appears?).
-# TODO: Consider making a help function, which states how to do some things...
-#       maybe...
 # TODO: Log who creates/deletes/edits a quote and maybe the changes they made?
 # TODO: ^ If done, consider creating a "revert/undo" function to revert a quote
 #       to its previous version. Also log that. Have the revert function work
 #       both ways. If used on a reverted quote
 #       it'll return to the latest edit.
-# TODO: Create a Quote class for more readability in code and easier management.
-#       Also would allow Quotes to be managed by other command modules.
 # TODO: Make broadcaster_nickname changes apply to the quotes file
-# TODO: Section off specific parts of the bot, such as all the parts that have
-#       to do with reading, and all the parts that have to do with writing.
-#       Give each of those a cooldown if necessary, so as to not have to use
-#       some global cooldown. Maybe just give each function a cooldown.
 # TODO: When fixing up the entire set of code, consider implementing a system
 #       to stop quotes for being repeated for some time.
-# TODO: With new command system, seperate !quotes and !quote cooldowns
-
-
-# TODO: For the new system, how can I seperate things like read/edit/add !?
-#       They should each have their own cooldown, but with the current way I'm
-#       doing things, they'd all have the same cooldown because of the command
-#       being registered running through quote_management.
-#       Should I give the system the ability to use regex given by modules to
-#       check whether or not a specific command is being used?
 
 # Imported Modules--------------------------------------------------------------
 import re
