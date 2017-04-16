@@ -12,6 +12,14 @@ Description:
 A set of tools to help command modules work more efficiently in combination with
 the rest of the command system that SpicyTwitch has.
 """
+# TODO: With datbase implementation, only modules can be disabled and not
+#       specific features within the module. Maybe I should let modules handle
+#       whether or not they'll run for specific channels?
+# TODO: Go through functions and assign variables to lower() version before
+#       usage, rather than constantly calling var.lower().
+#
+#       Like this: var = var.lower()
+#
 # TODO: Work on timers. As I'm having a few issues with the system.
 #       - Maybe I could just make a very simple system where the timer
 #         manager just runs a command ?
@@ -54,6 +62,10 @@ the rest of the command system that SpicyTwitch has.
 #       These would be used for responses, allowing a bot to instantly change
 #       the emotes it is uses for any module that uses them.
 #
+#       I'll have a function for updating the emote dictionary so that I can
+#       save and load the emotes into a database. Users will be able to just
+#       do 'module_tools.emotes["Greetings"]'. 
+#
 #       Example:
 #       Greetings: HeyGuys
 #       Content: SeemsGood
@@ -79,12 +91,32 @@ the rest of the command system that SpicyTwitch has.
 #       with name input. Also, maybe we should just tie the name to the module's
 #       actual file name. However, I feel this could lead to name collisions.
 # TODO: Create a logger for this module and log everything!
-# TODO: Optimize things...
+# NOTE: Bad news for the logger... it doesn't seem to be working...
 #       As I'm creating the sacrifice module, I've noticed that I might have
 #       some performance issues with modules that have to repeatedly request
 #       and update their data. If this is an issue, I should consider placing
 #       the data dictionary outside of the modules dictionary.
+# NOTE: Managing data is becoming quite the issue and I'm thinking that I should
+#       just let modules do what they want when it comes to saving data. Instead
+#       it would be preferable if this module did only two things, logging and
+#       executing module commands.
+#           I'll just have a database with the following tables:
+#               - general commands
+#                   - command
+#                   - response
+#                   - channel
+#                   - enabled
+#                   - creation date
+#                   - created by
+#                   - edit date
+#                   - edited by
+#               - modules
+#                   - name
+#                   - commands
+#                   - channels (where it is enabled)
+
 # Imports-----------------------------------------------------------------------
+import sqlite3
 import time
 import inspect  # May ruin compatibility with anything other than CPython!
 import re
@@ -92,8 +124,7 @@ import logging
 import warnings
 import platform
 import os
-import yaml  # TODO: Add to requirements file.
-from .. import irc
+from .. import IRC
 
 
 # Global Variables--------------------------------------------------------------
@@ -104,17 +135,9 @@ CATEGORIES = ["moderation", "response", "one-way", "timer"]
 DEFAULT_COOLDOWN = 30
 DEFAULT_MOD_COOLDOWN = 5
 DEFAULT_USERLEVEL = "everyone"
-DEFAULT_COMMAND_CONFIG = {
-    "enabled": True,
-    "userlevel": "everyone",
-    "last_mod_call_time": 0,
-    "last_call_time": 0,
-    "mod_cooldown": DEFAULT_MOD_COOLDOWN,
-    "cooldown": DEFAULT_COOLDOWN
-}
 
 # Logging
-log_is_on = False
+log_to_stdout = True
 log_to_file = True
 logging_level = logging.INFO
 log_format = '[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): ' \
@@ -122,32 +145,20 @@ log_format = '[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): ' \
 date_format = '%Y/%m/%d %I:%M:%S %p'
 log_formatter = logging.Formatter(log_format, datefmt=date_format)
 
-# Setting up terminal/console output for loggers
-if log_is_on:
-    console_handler = logging.StreamHandler()
-else:
-    # TODO: Find a way to make it so that the handler doesn't print at all.
-    console_handler = logging.NullHandler()
-
-console_handler.setFormatter(log_formatter)
-
 # Setting up the logger for this module
 _logger = logging.getLogger(__name__)
-_logger.addHandler(console_handler)
 
+# Setting up terminal/console output for loggers
+if log_to_stdout:
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+    _logger.addHandler(console_handler)
 
 # Modules and Systems
 # Apparently no performance issues with having everything in one dictionary!
 # Well, no issues as far as lookup time goes.
 _MODULES = {}
-
-# This list is what certain functions will use so that they don't modify the
-# contents of these keys.
-_IGNORE = ["storage", "category", "commands"]
-
-# Cooldown for saving data
-SAVE_COOLDOWN = 10
-LAST_SAVE = 0
+_SHUTDOWN_FUNCTIONS = []  # Called on shutdown of bot.
 
 
 # Storage Setup-----------------------------------------------------------------
@@ -167,14 +178,13 @@ else:
     #       of storage issue?
     raise RuntimeError("Unsupported/Untested OS is being run.")
 
-print(
+_logger.info(
     "Storage directory has been set to: {}".format(primary_storage_directory)
 )
 
 if not os.path.exists(primary_storage_directory):
-    # Please don't come back to bite me in the butt...
-    os.makedirs(primary_storage_directory)
-    print(
+    # Please don't come back to bite me in the butt...  os.makedirs()
+    _logger.info(
         "Primary storage path did not exist, creating folders."
     )
 
@@ -184,23 +194,21 @@ if log_to_file and not os.path.exists(log_directory):
     os.makedirs(log_directory)
 
     # Turning on logging to file for the module_tools logger
-    _file_path = os.path.join(log_directory, "module_tools")
+    _file_path = os.path.join(log_directory, "module_tools.log")
     _file_handler = logging.FileHandler(_file_path)
     _file_handler.setFormatter(log_formatter)
     _logger.addHandler(_file_handler)
 
 
-# TODO: This is rather unnecessary now, I should remove it.
 # For modules to be able to know what their storage directory is.
-def _get_storage_directory(module_name: str='') -> str:
-    if not module_name:
-        module_name = get_module_name()
+def get_storage_directory() -> str:
+    module_name = get_module_name()
 
     try:
         if module_name.lower() in _MODULES.keys():
             directory = _MODULES[module_name.lower()]["storage"]
 
-            print(
+            _logger.info(
                 "Module {} requested storage. Returning directory: "
                 "{}".format(module_name, directory)
             )
@@ -214,93 +222,29 @@ def _get_storage_directory(module_name: str='') -> str:
         return ''
 
 
-def recursive_yaml_load(directory_path: str, return_dict: dict):
-    for path in os.listdir(directory_path):
-        print("Return Dict: {}\n---".format(dict))
-        if os.path.isdir(path):
-            recursive_yaml_load(path, return_dict)
-        else:
-            key = os.path.basename(path)
-            with open(path, 'r') as data_file:
-                return_dict[key] = yaml.safe_load_all(data_file)
+# Database----------------------------------------------------------------------
+_logger.info("Connecting to database")
+DATABASE_FILE = "module_tools.db"
+connection = sqlite3.connect(os.path.join(primary_storage_directory, DATABASE_FILE))
+cursor = connection.cursor()
 
 
-# TODO: Check this for bugs
-# NOTE: One bug I think might happen is if a dict appears before all the other
-#       data has been dumped. I'm unsure whether or not this recursive function
-#       will correctly save all data or if we'll miss the data that is after a
-#       dict.
-def recursive_yaml_dump(directory: str, data: dict):
-    for key, value in data.items():
-        print("Key: {}\nValue: {}\n---".format(key, value))
-        if isinstance(value, dict):
-            # TODO: Make a guideline for dictionary keys having to have no
-            #       special characters. Else we're going to be in a world of
-            #       hurt when the OS begins to complain about incorrect folder
-            #       names... I don't want to modify it myself because that will
-            #       lead to confusion when loaded by in as the key will be
-            #       different from what the programmer expected.
-            new_path = os.path.join(directory, key)
-            if not os.path.isdir(new_path):
-                os.mkdir(new_path)
+# Setting up module tables ---
+# General commands
+cursor.execute(
+    "CREATE TABLE IF NOT EXISTS general_commands "
+    "(response TEXT, name TEXT, usage INT, cooldown INT, last_call REAL, "
+    "user_level TEXT created_by TEXT, channel TEXT, enabled TEXT)"
+)
 
-            recursive_yaml_dump(new_path, value)
-        else:
-            file_name = os.path.join(directory, key)
-            with open(file_name, 'w') as key_file:
-                yaml.safe_dump_all(value, key_file)
-
-
-def load_module_information(module_name: str) -> dict:
-    module_information = {}
-    for directory in os.listdir(primary_storage_directory):
-        if os.path.isdir(directory) and module_name.lower() in directory:
-            recursive_yaml_load(directory, module_information)
-
-    return module_information
-
-
-def save_module_information(module_name: str):
-    if not module_name:
-        # TODO: Log or warn about empty module name
-        return
-
-    try:
-        for info_key in _MODULES[module_name.lower()].keys():
-            if info_key in _IGNORE:
-                continue  # ignore the key and move onto the next one.
-
-            # NOTE: If I ever forget that this only works for dicts, I'll have
-            #       quite the day ahead of me.
-            # Creating a folder for each dict key in the main module_name
-            # dict.
-            module_storage = _MODULES[module_name.lower()]['storage']
-            key_storage = os.path.join(module_storage, info_key)
-
-            if not os.path.isdir(key_storage):
-                os.mkdir(key_storage)
-
-            data = _MODULES[module_name.lower()][info_key]
-
-            recursive_yaml_dump(key_storage, data)
-
-    except KeyError:
-        # TODO: Log error with module name
-        pass
-
-
-# TODO: When ready, add saving for other module categories.
-def save_all():
-    global LAST_SAVE
-    for module in _MODULES.keys():
-        if _MODULES[module]['category'] == 'response':
-            save_module_information(module)
-
-    LAST_SAVE = time.time()
+# Modules
+cursor.execute(
+    "CREATE TABLE IF NOT EXISTS modules "
+    "(name TEXT, channels TEXT)"
+)
 
 
 # Inspection--------------------------------------------------------------------
-# TODO: Implement these functions!
 def get_module_name(outer_module: bool=True) -> str:
     stack = inspect.stack()
 
@@ -316,6 +260,7 @@ def get_module_name(outer_module: bool=True) -> str:
     return inspect.getmodulename(stack[stack_index][1])
 
 
+# NOTE: Has not been tested!
 def get_function_name(outer_module: bool=True) -> str:
     stack = inspect.stack()
 
@@ -328,28 +273,26 @@ def get_function_name(outer_module: bool=True) -> str:
 
 
 # Logging System----------------------------------------------------------------
-def create_logger(python_module_name: str='') -> logging.Logger:
-    """Creates a logger with the module's __name__ and adds it to a local dict.
+def create_logger() -> logging.Logger:
+    """Creates a logger with the module's name and adds it to a local dict.
 
-    Creates a logger using the logging module, using getLogger() with the input
-    of the python_module_name argument. If python_module_name is not given, the
-    function will attempt to determine the name of the module that called it.
+    Creates a logger using the logging module, using getLogger() with the name
+    given by the gen_module_name() function.
 
-    :param python_module_name:  The name used to create the logger. __name__
-                                is recommended.
     :return: logging.Logger object
     """
 
-    if not python_module_name:
-        python_module_name = get_module_name()
+    python_module_name = get_module_name()
 
     # Creating the logger
     module_logger = logging.getLogger(python_module_name)
-    module_logger.addHandler(console_handler)
+
+    if log_to_stdout:
+        module_logger.addHandler(console_handler)
 
     # Setting up file output
     if log_to_file:
-        file_path = os.path.join(log_directory, python_module_name)
+        file_path = os.path.join(log_directory, python_module_name + '.log')
         file_handler = logging.FileHandler(file_path)
         file_handler.setFormatter(log_formatter)
         module_logger.addHandler(file_handler)
@@ -357,146 +300,160 @@ def create_logger(python_module_name: str='') -> logging.Logger:
     module_logger.setLevel(logging_level)
     return module_logger
 
-
-# Configuration ----------------------------------------------------------------
-# TODO: In allowing a channel to change the config, add only their changes to
-#       commands_config, so as to not create a huge amount of duplicates(?)
-def get_config(channel: str, module_name: str='') -> dict:
-    """Gets current state of channel's configuration settings for a module.
-
-    Configuration options can be edited by moderators and broadcasters, which
-    allows your module to react differently based on changes to specific
-    options.
-
-    :param module_name: Name of your registered module
-    :param channel: The channel
-    :return: A dictionary containing the configuration options.
-    """
-
-    if not module_name:
-        module_name = get_module_name()
-
-    try:
-        return _MODULES[module_name.lower()]['config'][channel]
-    except KeyError:
-        pass  # TODO: Log error with either bad module name or channel name.
-
-
-def update_config(channel: str, config: dict, module_name: str=''):
-    if not module_name:
-        module_name = get_module_name()
-
-    try:
-        _MODULES[module_name.lower()]['config'][channel] = config
-    except KeyError:
-        pass  # TODO: Log error with either bad module name or channel name.
-
-
-# Data Management---------------------------------------------------------------
-def get_data(channel: str, module_name: str='') -> dict:
-    if not module_name:
-        module_name = get_module_name()
-
-    try:
-        return _MODULES[module_name.lower()]['data'][channel.lower()]
-    except KeyError:
-        return {}  # TODO: Log error with either bad module name or channel name.
-
-
-def update_data(channel: str, data: dict, module_name: str=''):
-    if not module_name:
-        module_name = get_module_name()
-
-    try:
-        _MODULES[module_name.lower()]['data'][channel] = data
-    except KeyError:
-        pass  # TODO: Log error with either bad module name or channel name.
-
-
 # Command System----------------------------------------------------------------
+# TODO: Have it check for duplicate with general commands
 def check_duplicate_command_name(name: str, channel: str='') -> bool:
     """Checks if a command is already registered by a module
 
     :param name: Name of the command
+    :channel: If given, will check against custom channel-specific commands.
     :return: False if command is already in use, else it returns True.
     """
+
+    # Checking against module registered commands
     for module in _MODULES.keys():
         if name.lower() in _MODULES[module]["commands"].keys():
             return False
 
     if channel:
-        if name in _MODULES["command_manager"]["custom_commands"][channel].keys():
+        # Checking against custom, channel specific, commands.
+        cursor.execute(
+            "SELECT name FROM general_commands "
+            "WHERE name=(?) AND channel=(?)", (name, channel)
+        )
+
+        if len(cursor.fetchall()) > 0:
             return False
+    
 
     return True
 
 
 def check_cooldown(
-        module_name: str, name: str, user: irc.User, channel: str
+        name: str, user: IRC.User, module_name: str=''
 ) -> bool:
-    try:
-        last_call = _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['last_call_time']
+
+    # Checking module commands
+
+    if module_name:
+        try:
+            commands_config = _MODULES[module_name.lower()]['commands_config']
+            last_call = commands_config[user.chatted_from][name]['last_call_time']
+
+            if user.is_mod or user.is_broadcaster:
+                cooldown = commands_config[user.chatted_from][name]['mod_cooldown']
+            else:
+                cooldown = commands_config[user.chatted_from][name]['cooldown']
+
+            if time.time() - last_call > cooldown:
+                _logger.debug(
+                    "Allowing user '{}' to run command '{}'.".format(user.name, name)
+                )
+                return True
+            else:
+                _logger.debug(
+                    "Disallowing user '{}' from running command '{}'.".format(user.name, name)
+                )
+                return False
+        except KeyError:
+            pass
+    else:
+
+        # Checking channel-specific commands
+        cursor.execute(
+            "SELECT cooldown,last_call FROM general_commands "
+            "WHERE name=(?) AND channel=(?)",
+            (name, user.chatted_from)
+        )
+
+        data = cursor.fetchall()
+        if len(data) == 0:
+            # If there is no data, the command wasn't found so we return false.
+            return False
+        elif len(data) > 1:
+            warnings.warn(
+                "Duplicate custom command found!: name={}, channel={}"
+                "".format(name, user.chatted_from)
+            )
+            # Returns false no matter what. I'd prefer it to not allow the running
+            # of a command, so as to prompt someone to look into the bot and find
+            # out what the problem is rather than thinking everything is alright.
+            return False
 
         if user.is_mod or user.is_broadcaster:
-            cooldown = _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['mod_cooldown']
+            cooldown = DEFAULT_MOD_COOLDOWN
         else:
-            cooldown = _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['cooldown']
+            cooldown = data[0][0]
 
-        if time.time() - last_call > cooldown:
+        # data[0][1] is last_call
+        if time.time() - data[0][1] > cooldown:
+            _logger.debug(
+                "Allowing user '{}' to run general command '{}' in channel '{}'.".format(
+                    user.name, name, user.chatted_from
+                )
+            )
             return True
         else:
+            _logger.debug(
+                "Disallowing user '{}' from running general command '{}' in channel '{}'.".format(
+                    user.name, name, user.chatted_from
+                )
+            )
             return False
-    except KeyError:
-        # TODO: Log specific error
-        return False
+
+    return False
 
 
-def mark_cooldown(module_name: str, name: str, user: irc.User):
-    if user.is_mod or user.is_broadcaster:
-        _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['last_mod_call_time'] = time.time()
+def mark_cooldown(name: str, user: IRC.User, module_name: str=''):
+
+    if module_name:
+        try:
+            # Updating module commands
+            if user.is_mod or user.is_broadcaster:
+                _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['last_mod_call_time'] = time.time()
+            else:
+                _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['last_call_time'] = time.time()
+        except KeyError:
+            pass
     else:
-        _MODULES[module_name.lower()]['commands_config'][user.chatted_from][name]['last_call_time'] = time.time()
+        # Updating channel-specific commands
+        if user.is_mod or user.is_broadcaster:
+            return  # So as to not affect the cooldown for other users
+        else:
+            cursor.execute(
+                "UPDATE general_commands "
+                "SET last_call=(?) "
+                "WHERE name=(?) AND channel=(?)",
+                (time.time(), name, user.chatted_from)
+            )
 
 
-def run_command(module_name: str, user: irc.User):
+def run_general_command(user: IRC.user):
+    command = user.command.lower().split(DEFAULT_COMMAND_PREFIX)[0]
+    
+    cursor.execute(
+        "SELECT user_level, response FROM general_commands "
+        "WHERE name=(?) AND channel=(?)",
+        (command, user.chatted_from.lower())
+    )
 
+    data = cursor.fetchall()
+    if len(data) > 0:  # Checks to see if a command was returned by the database
+        user_level = data[0][0]
+        response = data[0][1]
+        if check_user_level(user_level, user) and check_cooldown(command, user):
+            # Send the response to the channel the command was run in.
+            IRC.chat(user.chatted_from, response)
+            mark_cooldown(command, user)
+        
+
+def run_command(module_name: str, user: IRC.User):
     # TODO: Consider doing a "try/except" block instead of looping through the
     #       commands. I just need to make the command manager not allow regex,
     #       which I think the '\w' command already does anyways. In doing so, I
     #       should be able to just attempt to run the command instantly rather
     #       than going through the entire dictionary.
-
-    # Run a local command (As in, local to the channel)
-    custom_commands = _MODULES[module_name.lower()]['custom_commands']
-    if custom_commands:
-        for regex, command in custom_commands.items():
-            enabled = _MODULES[module_name.lower()]["commands_config"][user.chatted_from][regex]['enabled']
-
-            if not enabled:
-                return
-
-            full_regex = r"^{}{}$".format(DEFAULT_COMMAND_PREFIX, regex.lstrip())
-
-            if re.match(full_regex, user.message):
-                if check_cooldown(module_name, regex, user):
-                    # Run the command.
-                    command(user)
-
-                    # Update the cooldown information
-                    mark_cooldown(module_name, regex, user)
-
-                # Exit out of the loop since we've matched the command and attempted
-                # to run it.
-                break
-
-    # Run a globalk command (As in, other channels can run the command as well)
     for regex, command in _MODULES[module_name.lower()]['commands'].items():
-        # Make sure the command is enabled
-        enabled = _MODULES[module_name.lower()]["commands_config"][user.chatted_from][regex]['enabled']
-
-        if not enabled:
-            return
-
         # Only launches commands if they match exactly with the regex, if
         # the command starts later or ends with extra information it doesn't
         # launch. I did this so that we wouldn't run into issues where
@@ -506,12 +463,18 @@ def run_command(module_name: str, user: irc.User):
 
         # Check if regex (usually just a command name) matches.
         if re.match(full_regex, user.message):
-            if check_cooldown(module_name, regex, user):
+            _logger.debug(
+                "Regex '{}' has matched with user command '{}'.".format(
+                    full_regex, user.message
+                )
+            )
+            if check_cooldown(regex, user, module_name=module_name):
+                _logger.info("Regex matched, running command '{}'".format(full_regex))
                 # Run the command.
                 command(user)
 
                 # Update the cooldown information
-                mark_cooldown(module_name, regex, user)
+                mark_cooldown(regex, user, module_name)
 
             # Exit out of the loop since we've matched the command and attempted
             # to run it.
@@ -519,6 +482,8 @@ def run_command(module_name: str, user: irc.User):
 
 # TODO: Make sure this works!
 def unregister_command(name: str) -> bool:
+    """Removes a module command
+    """
     module = get_module_name()
     if name in _MODULES[module]['commands'].keys() :
         del _MODULES[module]['commands_config'][name]
@@ -559,8 +524,6 @@ def unregister_command(name: str) -> bool:
 #       from which it matched to a dict. Then it moves on until it no longer
 #       has any commands/modules to try and match against. If the dict is
 #       larger than 1, it has failed and there is a duplicate command.
-# TODO: The commands config stuff is broken and not set to work with multiple
-#       channels! I need to fix this.
 def register_command(
         name: str,
         function: callable,
@@ -568,8 +531,6 @@ def register_command(
         cooldown=DEFAULT_COOLDOWN,
         mod_cooldown=DEFAULT_MOD_COOLDOWN,
         enabled=True,
-        channel=False,
-        module_name: str=''
 ):
     """Registers a command so that it may be used on Twitch.
 
@@ -579,7 +540,6 @@ def register_command(
     and even disable the command (stops it from being run) if a broadcaster
     desires so.
 
-    :param module_name: Name of your registered module
     :param name: Name of the command you'd like to register
     :param function: Function that will be called when the command is used.
     :param user_level: The level necessary for a user to run the command.
@@ -592,7 +552,8 @@ def register_command(
         raise RuntimeError("Command attempted to register with empty string "
                            "for name.")
     elif not user_level:
-        raise RuntimeError("Command attempted to register with no user_level.")
+        raise RuntimeError("Command attempted to register with an empty string "
+                           "as its user_level.")
     elif cooldown < 5:
         warnings.warn(
             "Command '{}' has registered with a cooldown of {} seconds. "
@@ -602,9 +563,7 @@ def register_command(
 
     global _MODULES
     # Make sure module has been registered before registering command
-    if not module_name:
-        module_name = get_module_name()
-
+    module_name = get_module_name()
     if module_name.lower() not in _MODULES.keys():
         raise RuntimeError("Unregistered module '{}' attempted to register a "
                            "command. Please register your module "
@@ -619,21 +578,12 @@ def register_command(
     # Checking if command name is taken locally
     if not check_duplicate_command_name(name.lower()):
         raise RuntimeError("Command name '{}' is already taken.".format(name))
-    elif channel:
-        _MODULES[module_name.lower()]['custom_commands_config'][channel][name.lower()] = {}
-        _MODULES[module_name.lower()]["custom_commands_config"][channel][name.lower()] = {
-            "enabled": enabled,
-            "userlevel": user_level,
-            "last_call_time": 0,
-            "mod_cooldown": mod_cooldown,
-            "cooldown": cooldown
-        }
-
-        _MODULES[module_name.lower()]["custom_commands"][channel][name.lower()] = function
     else:
-        _MODULES[module_name.lower()]['commands_config'][name.lower()] = {}
-        _MODULES[module_name.lower()]["commands_config"][name.lower()] = {
-            "enabled": enabled,
+        print("Registering {} as a command for module {}".format(name, module_name))
+        if '###DEFAULT###' not in _MODULES[module_name.lower()]["commands_config"]:
+            _MODULES[module_name.lower()]["commands_config"]['###DEFAULT###'] = {}
+
+        _MODULES[module_name.lower()]["commands_config"]['###DEFAULT###'][name.lower()] = {
             "userlevel": user_level,
             "last_call_time": 0,
             "mod_cooldown": mod_cooldown,
@@ -644,6 +594,16 @@ def register_command(
 
 
 # Module Systems----------------------------------------------------------------
+def update_modules_for_new_channel(channel: str):
+    """Adds channels to module commands_config fields.
+    :param channel: The channel that will be added to each module
+    :return: Nothing
+    """
+    for module in _MODULES.keys():
+        if channel not in _MODULES[module]["commands_config"]:
+            default_command_config = _MODULES[module]["commands_config"]["###DEFAULT###"]
+            _MODULES[module]["commands_config"][channel] = default_command_config
+
 def check_duplicate_module_name(module_name: str) -> bool:
     """Checks if module name has already been registered.
 
@@ -657,62 +617,30 @@ def check_duplicate_module_name(module_name: str) -> bool:
         return True
 
 
-def update_modules_for_new_channel(channel: str):
-    """Adds channels to module data/config/commands_config/etc.. fields.
-
-    :param channel: The channel that will be added to each module
-    :return: Nothing
+def register_shutdown_function(function: callable):
+    """Adds a function to a list of functinos that will be called on bot shutdown.
     """
-    for module in _MODULES.keys():
-        for key, value in _MODULES[module].items():
-            if key in _IGNORE:
-                continue
-
-            if channel not in value:
-                if key == "commands_config":
-                    _MODULES[module][key][channel] = {}
-                    for command in _MODULES[module]["commands"].keys():
-                        _MODULES[module][key][channel][command] = DEFAULT_COMMAND_CONFIG
-                elif key == "config":
-                    _MODULES[module][key][channel] = _MODULES[module][key]["DEFAULT_CONFIGURATION"]
-                elif key == "data":
-                    _MODULES[module][key][channel] = _MODULES[module][key]["DEFAULT_DATA_INITIALIZATION"]
-                else:
-                    _MODULES[module][key][channel] = {}
+    global _SHUTDOWN_FUNCTIONS
+    _SHUTDOWN_FUNCTIONS.append(function)
 
 
 def register_module(
-        data: dict=None,
-        config: dict=None,
         category: str="response",
-        module_name: str=''
 ):
     """Registers a module, allowing for management of commands and data.
 
     Registering a module adds it to a dictionary that is managed by the other
     module tools. This allows a module to register commands, which can then be
-    run in Twitch chat, as well as making the command available to the Command
-    Manager, which can then make changes to the commands cooldown and user level
-    directly from Twitch (only managers and broadcasters can do this).
+    run in Twitch chat.
 
-    The Command Manager also allows for changes to configuration options for
-    the registered module. This allows a module to dynamically alter what it
-    does based on changes to a specific configuration option.
-
-    :param module_name: Name of the soon-to-be registered module
     :param category: The category corresponding to what the module is meant for.
-    :param data: Data that will be used when initializing channels.
-    :param config: Your default set of configuration options.
     :return: Nothing
     """
-    if not module_name:
-        module_name = get_module_name()
+    module_name = get_module_name()
 
     if not category:
         raise RuntimeError("Module {} attempted to register with an empty "
                            "string for its category.".format(module_name))
-    elif not isinstance(category, str):
-        raise RuntimeError("Module category must be a string.")
 
     # Making sure category is one we know of
     if category.lower() not in CATEGORIES:
@@ -721,8 +649,7 @@ def register_module(
 
     # Checking for duplicate module name.
     if not check_duplicate_module_name(module_name):
-        raise RuntimeError("Module name {} is already used by another "
-                           "module.".format(module_name))
+        raise RuntimeError("Module name {} is already registered".format(module_name))
 
     global _MODULES
 
@@ -730,23 +657,7 @@ def register_module(
     module_storage = os.path.join(primary_storage_directory, module_name.lower())
     if not os.path.exists(module_storage):
         os.makedirs(module_storage)
-    else:
-        loaded_data = load_module_information(module_name.lower())
-
-        if loaded_data:
-            _MODULES[module_name.lower()] = loaded_data
-
     if module_name.lower() not in _MODULES.keys():
-        if config:
-            default_config = config
-        else:
-            default_config = {}
-
-        if data:
-            default_data = data
-        else:
-            default_data = {}
-
         # Loading in basic Module dictionary layout.
         # NOTE: I added "custom_commands" as a temporary fix for general
         #       commands made by the command_manager. However... I feel as if
@@ -755,11 +666,7 @@ def register_module(
         _MODULES[module_name.lower()] = {
             "category": category.lower(),
             "storage": module_storage,
-            "data": {"DEFAULT_DATA_INITIALIZATION": default_data},
-            "config": {"DEFAULT_CONFIGURATION": default_config},
             "commands_config": {},
-            "custom_commands_config": {},
-            "custom_commands": {},
             "commands": {}
         }
 
@@ -767,7 +674,7 @@ def register_module(
 # Management Systems------------------------------------------------------------
 # TODO: Remember to log when a user tries to access something they
 #       don't have the level for.
-def check_user_level(level: str, user: irc.User) -> bool:
+def check_user_level(level: str, user: IRC.User) -> bool:
     """Compares twitch.User to the given (and known) userlevel
 
     The known userlevels are in the USER_LEVELS dict.
@@ -789,7 +696,7 @@ def check_user_level(level: str, user: irc.User) -> bool:
         return False
 
 
-def moderation_check(user: irc.User) -> bool:
+def moderation_check(user: IRC.User) -> bool:
     """Checks if user has triggered any moderation filters.
 
     Goes through all moderation modules and checks the user against all filters
@@ -802,14 +709,13 @@ def moderation_check(user: irc.User) -> bool:
     for module_name in _MODULES.keys():
         if _MODULES[module_name]["category"] == "moderation":
             for command in _MODULES[module_name]["commands"].keys():
-                if _MODULES[module_name]["commands_config"][user.chatted_from][command]["enabled"]:
-                    if not _MODULES[module_name]["commands"][command](user):
-                        return False
+                if not _MODULES[module_name]["commands"][command](user):
+                    return False
     return True
 
 
 # TODO: Create run_command and run_command_manager
-def manage_response_commands(user: irc.User):
+def manage_response_commands(user: IRC.User):
     """Runs a user's command if it is in a response modules.
 
     Checks if a command is enabled and if the user's level matches the level
@@ -830,7 +736,7 @@ def manage_response_commands(user: irc.User):
 # Consider allowing people to disable the one ways? Since they'll do things like
 # logging chat and gathering statistics,
 # which some channels will not like.
-def hand_over_to_one_ways(user: irc.User):
+def hand_over_to_one_ways(user: IRC.User):
     """Hands the user over to every one-way module.
 
     :param user: The user object that will be given to each module
@@ -842,3 +748,8 @@ def hand_over_to_one_ways(user: irc.User):
                 # These aren't supposed to return anything, either way we don't
                 # care to check if they do.
                 command(user)
+
+
+def run_shutdown_functions():
+    for function in _SHUTDOWN_FUNCTIONS:
+        function()
