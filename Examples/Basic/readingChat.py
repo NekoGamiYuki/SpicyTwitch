@@ -11,7 +11,7 @@ get the channel a user chatted from by checking twitch.user.chatted_from
 """
 
 import sys
-from SpicyTwitch import irc
+from spicytwitch import irc
 
 # Connect to twitch, make sure we've logged in.
 if not irc.connect("username", "oauth:..."):
@@ -22,7 +22,7 @@ if not irc.connect("username", "oauth:..."):
 irc.join_channel("my_channel")
 
 # The main loop of our program, which will request information from twitch,
-# including getting the latest lines of chat from the channels that have been
+# including getting the latest line of chat from the channels that have been
 # joined.
 while True:
     # Get info from twitch to be up to date with the chat.

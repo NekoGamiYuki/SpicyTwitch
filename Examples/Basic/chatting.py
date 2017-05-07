@@ -11,7 +11,7 @@ Replace the necessary parameters (such as "username") with your own.
 
 import sys
 import time
-from SpicyTwitch import irc
+from spicytwitch import irc
 
 # Connect to twitch, make sure we've logged in.
 if not irc.connect("username", "oauth:..."):

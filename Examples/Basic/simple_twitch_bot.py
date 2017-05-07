@@ -12,7 +12,7 @@ Replace the necessary parameters (such as "username") with your own.
 """
 
 import sys
-from SpicyTwitch import irc
+from spicytwitch import irc
 
 if not irc.connect("username", "oauth:..."):
     print("Unable to login!")
