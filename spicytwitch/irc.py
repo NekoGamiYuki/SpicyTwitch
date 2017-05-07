@@ -10,8 +10,6 @@ Examples:
 Example program is located in the 'Examples' folder.
 """
 
-# TODO: Add logging capabilities (maybe)
-# TODO: Update all print/string statements to use .format instead of %
 # TODO: Finish adding docstrings and commenting out code
 # TODO: Make get_info check for CAP NACK.
 # TODO: Make manage_irc capable of basic IRC if tags aren't ACK'd
@@ -597,17 +595,6 @@ def _parse_irc(irc_info: str):
         True: When it parses the information
     """
 
-    # DEBUG !!!
-    """
-    print('-' * 80)
-    print("cap: {}".format(cap_regex.findall(irc_info)))
-    print("irc_chat: {}".format(irc_chat_regex.findall(irc_info)))
-    print("join_part: {}".format(join_part_regex.findall(irc_info)))
-    print("name_start: {}".format(names_start_regex.findall(irc_info)))
-    print("name_end: {}".format(names_end_regex.findall(irc_info)))
-    print("mod: {}".format(mod_regex.findall(irc_info)))
-    """
-
     # This feels incredibly inefficient but it works...
     cap = cap_regex.findall(irc_info)
     irc_chat = irc_chat_regex.findall(irc_info)
@@ -1092,10 +1079,6 @@ def get_info(timeout_seconds=None) -> bool:
         irc_logger.warning("Failed to decode Twitch data, discarding! There's a possibility that you may miss a chat "
                            "line if that was what caused the failure.")
         return False
-    # TODO: For some reason this begins to be spammed at certain points.
-    #       I believe the issue may have to do with Twitch closing the connection.
-    #       Will know once I implement the Select module.
-    # print(">>>GET_INFO_FULL: {}".format(information))
 
     if not information:
         return False
