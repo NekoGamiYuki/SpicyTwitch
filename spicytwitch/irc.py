@@ -713,11 +713,6 @@ def _send_info(info: str) -> bool:
     # to a specific channel and how much time has elapsed since the first one
     # was sent. After 30 seconds pass, we reset the message counter.
 
-    if not is_connected:
-        raise RuntimeError(
-            "Unable to send data. Not connected to twitch!"
-        )
-
     global _commands_sent
     global _send_time
 
