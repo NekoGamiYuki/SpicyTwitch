@@ -559,5 +559,5 @@ class GeneralCommandDatabase(object):
 
     
     def close(self):
-        sefl.cursor.close()
+        self.cursor.close()
         self.database.close()
