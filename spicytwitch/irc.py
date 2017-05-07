@@ -19,7 +19,7 @@ Example program is located in the 'Examples' folder.
 #       module capable of managing multiple bots. Though I find that unnecessary,
 #       but cool.
 # TODO: Add local time to User class.
-# TODO: twitchnotifty is the user that notifies everyone of new subscribers
+# NOTE: twitchnotifty is the user that notifies everyone of new subscribers
 # TODO: Need to implement the select module as soon as possible~!
 # TODO: Consider merging SpicyTwitchIRC and SpicyBotAPI into SpicyTwitch.bot
 #       and Spicytwitch.irc respectively, as a single package.
@@ -715,6 +715,11 @@ def _send_info(info: str) -> bool:
     # This will require keeping track of how many messages were sent by a user
     # to a specific channel and how much time has elapsed since the first one
     # was sent. After 30 seconds pass, we reset the message counter.
+
+    if not is_connected:
+        raise RuntimeError(
+            "Unable to send data. Not connected to twitch!"
+        )
 
     global _commands_sent
     global _send_time
