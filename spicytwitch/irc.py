@@ -20,9 +20,6 @@ Example program is located in the 'Examples' folder.
 #       but cool.
 # TODO: Add local time to User class.
 # NOTE: twitchnotifty is the user that notifies everyone of new subscribers
-# TODO: Need to implement the select module as soon as possible~!
-# TODO: Consider merging SpicyTwitchIRC and SpicyBotAPI into SpicyTwitch.bot
-#       and Spicytwitch.irc respectively, as a single package.
 # TODO: Either turn this into a class or create a class using this module. This
 #       will allow for the use of multiple users, which will be useful for certain
 #       applications that might want to allow multi-user applications
