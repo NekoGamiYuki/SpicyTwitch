@@ -51,4 +51,7 @@ def manage_all_modules(user: irc.User):
 # Cleanup functions-------------------------------------------------------------
 def run_cleanup():
     for function in modules.SHUTDOWN_FUNCTIONS:
-        function()
+        try:
+            function()
+        except TypeError:
+            continue
