@@ -8,7 +8,7 @@ from . import storage
 # Base setup--------------------------------------------------------------------
 log_to_stdout = True
 log_to_file = True
-logging_level = logging.DEBUG  # TODO: Change this back to INFO!
+logging_level = logging.INFO
 log_format = '[%(asctime)s] [%(levelname)s] [%(module)s] (%(funcName)s): ' \
              '%(message)s'
 date_format = '%Y/%m/%d %I:%M:%S %p'
