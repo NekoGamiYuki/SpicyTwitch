@@ -373,7 +373,7 @@ class User(object):
 #       which function to use.
 # TODO: Manage GLOBALUSERSTATE, use to create a "me" variable that contains our
 #       user's information.
-def _manage_tags(input_data: str):
+def manage_tags(input_data: str):
     """
     Manages most tags given by Twitch. Specifically, it manages PRIVMSG, NOTICE,
     ROOMSTATE, and CLEARCHAT tags. Updates the corresponding variables, such as
@@ -421,7 +421,7 @@ def _manage_tags(input_data: str):
                 channels[twitch_data[-2]].message_count += 1
 
             # Update user variable
-            irc_logger.info("Updating user variable.")
+            irc_logger.debug("Recieved chat line. Updating user variable.")
             user = User(extracted_tag_data, twitch_data[-2], twitch_data[-1], twitch_data[-4])
 
             # Sometimes this breaks, specifically when a user calls leave_channel()
@@ -578,7 +578,7 @@ def _manage_tags(input_data: str):
 
 # TODO: Implement regex for HOSTTARGET and manage RECONNECT calls.
 # TODO: Manage CAP NAK
-def _parse_irc(irc_info: str):
+def parse_irc(irc_info: str):
     """
     Parses any information that _manage_tags does not. This, for now, is just
     any JOINS and PARTS, as well as whenever hosting is started (however,
@@ -1038,9 +1038,7 @@ def get_info(timeout_seconds=None) -> bool:
         # Check if socket is closed.
         if information == b'' or len(information) == 0:
             if _RECONNECT:
-                irc_logger.info("Reconnecting to Twitch.")
                 if not reconnect():
-                    irc_logger.warning("Failed to reconnect to to Twitch.")
                     raise ConnectionAbortedError("Twitch has closed the connection.")
                 return True
             irc_logger.warning("Twitch has closed the connection.")
@@ -1092,13 +1090,13 @@ def get_info(timeout_seconds=None) -> bool:
         else:
             return True
     else:
-        irc_logger.info("Sending data over to parsers.")
+        irc_logger.debug("Sending data over to parsers.")
         # Time to parse the information we received!
         for info in information.split('\n'):
             if info:
                 # TODO: Maybe do checks for logging purposes?
                 if info[0] == '@':
-                    _manage_tags(info.strip())
+                    manage_tags(info.strip())
                 else:
-                    _parse_irc(info.strip())
+                    parse_irc(info.strip())
         return True
