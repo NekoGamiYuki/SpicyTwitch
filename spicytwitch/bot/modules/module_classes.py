@@ -106,7 +106,7 @@ class Command(object):
         else:
             _logger.debug("User was not a mod/broadcaster")
             last_everyone_call = self.channel_cooldowns[user.chatted_from]["everyone"]
-            if time() - last_everyon_call > self.everyone_cooldown:
+            if time() - last_everyone_call > self.everyone_cooldown:
                 _logger.debug("Cooldown has passed")
                 return True
             else:
