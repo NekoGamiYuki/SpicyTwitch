@@ -48,7 +48,8 @@ _PORT = 6667  # Not using twitch's SSL capable server's
 
 # Connection information
 _CONNECTION_PROTOCOL = ''  # Do not set this yourself! Use connect() instead
-_RECONNECT = False
+_RECONNECT_LIMIT = 10  # Attempt to reconnect no more than this amount of  times
+_RECONNECT_ATTEMPTS = 0
 is_connected = False
 
 # Configuration variables for _send_info()
@@ -993,8 +994,9 @@ def reconnect():
         True: When it succeeds in reconnecting.
 
     """
-    global _RECONNECT
+    global _RECONNECT_ATTEMPTS
 
+    irc_logger.info("Attempting to reconnect to twitch.")
     if not disconnect():
         warnings.warn("Failed to disconnect from Twitch.")
         return False
@@ -1009,7 +1011,7 @@ def reconnect():
                 if not join_channel(channel, True):
                     irc_logger.warning("Failed to rejoin {}!".format(channel))
                     return False
-            _RECONNECT = False
+            _RECONNECT_ATTEMPTS = 0
             return True
 
 
@@ -1028,7 +1030,7 @@ def get_info(timeout_seconds=None) -> bool:
         True: If all information is parsed or if a PONG is sent.
 
     """
-    global _RECONNECT
+    global _RECONNECT_ATTEMPTS
 
     # Disable timeouts by default, in order to not disconnect from twitch no
     # matter how much time passes by.
@@ -1037,12 +1039,16 @@ def get_info(timeout_seconds=None) -> bool:
         information = _SOCK.recv(4096)
         # Check if socket is closed.
         if information == b'' or len(information) == 0:
-            if _RECONNECT:
+
+            # Loop through and attempt to reconnect
+            sleep_amount = 3
+            while _RECONNECT_ATTEMPTS < _RECONNECT_LIMIT:
                 if not reconnect():
-                    raise ConnectionAbortedError("Twitch has closed the connection.")
-                return True
-            irc_logger.warning("Twitch has closed the connection.")
-            raise RuntimeError("Twitch has closed the connection.")
+                    time.sleep(sleep_amount)
+                    sleep_amount += sleep_amount
+                _RECONNECT_ATTEMPTS += 1
+
+            raise ConnectionAbortedError("Twitch has closed the connection.")
     except socket.timeout:
         disconnect()  # Unsure if I should disconnect or raise an error? Likely better to raise.
         return False
@@ -1077,12 +1083,6 @@ def get_info(timeout_seconds=None) -> bool:
 
     if not information:
         return False
-    elif "RECONNECT" in information and "PRIVMSG" not in information:  # Yet to be tested.
-        # NOTE: Twitch does not show what the RECONNECT message/notification looks like. I'm left to a rough guess of
-        #       what to search for. So for now, all I'm searching for is RECONNECT and making sure it's not a chat
-        #       message.
-        _RECONNECT = True
-        pass
     elif information == "PING :tmi.twitch.tv\r\n":  # Ping Pong time.
         irc_logger.info("Received PING, sending PONG.")
         if not _send_info("PONG :tmi.twitch.tv\r\n"):
