@@ -435,8 +435,14 @@ def manage_tags(input_data: str):
                     irc_logger.info("Adding {} to {}'s mod list.".format(user.name, user.chatted_from))
                     channels[user.chatted_from].moderators.append(user.name)
                 elif not user.is_mod and not user.is_broadcaster and user.name.lower() in moderator_list:
-                    irc_logger.info("Removing {} from {}'s mod list.".format(user.name, user.chatted_from))
-                    channels[user.chatted_from].moderators.remove(user.name)
+                    try:
+                        channels[user.chatted_from].moderators.remove(user.name)
+                        irc_logger.info("Removing {} from {}'s mod list.".format(user.name, user.chatted_from))
+                    except ValueError:
+                        irc_logger.debug(
+                            "Unable to remove user from mod list. This might have already been done by"
+                            " another part of the module so it shouldn't be an issue."
+                        )
 
                 # We can also add them to the list of viewers if they weren't
                 # already there.
